@@ -1,0 +1,18 @@
+[[source]]
+url = "https://mirrors.aliyun.com/pypi/simple"
+verify_ssl = false
+name = "pypi"
+
+[packages]
+reader = "*"
+pandas = "*"
+tushare = "*"
+black = "*"
+
+[dev-packages]
+black = "*"
+pytest = "*"
+ta-lib = "*"
+
+[requires]
+python_version = "3.11"
