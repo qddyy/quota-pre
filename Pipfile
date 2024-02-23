@@ -12,6 +12,7 @@ torch = "*"
 torchvision = "*"
 torchaudio = "*"
 ta-lib = {file = "C:\\Users\\admin\\Downloads\\TA_Lib-0.4.26-cp311-cp311-win_amd64.whl"}
+matplotlib = "*"
 
 [dev-packages]
 pytest = "*"

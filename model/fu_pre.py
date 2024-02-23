@@ -112,6 +112,7 @@ class ConvLSTM(nn.Module):
         batch_first=False,
         bias=True,
         return_all_layers=False,
+        output_dim=5,
     ):
         super(ConvLSTM, self).__init__()
 
@@ -145,6 +146,7 @@ class ConvLSTM(nn.Module):
             )
 
         self.cell_list = nn.ModuleList(cell_list)
+        self.fc = nn.Linear(hidden_dim[0], output_dim)
 
     def forward(self, input_tensor, hidden_state=None):
         """
@@ -199,7 +201,13 @@ class ConvLSTM(nn.Module):
             layer_output_list = layer_output_list[-1:]
             last_state_list = last_state_list[-1:]
 
-        return layer_output_list, last_state_list
+        # 获取最后一个时间步的输出
+        last_output = layer_output_list[-1][:, -1, :, :, :]
+
+        # 对输出应用全连接层
+        last_output = torch.squeeze(last_output)
+        output = self.fc(last_output)
+        return output, last_state_list
 
     def _init_hidden(self, batch_size, image_size):
         init_states = []
