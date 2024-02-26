@@ -39,12 +39,11 @@ def make_data(code: str) -> pd.DataFrame:
     fu_dat = pd.read_csv(file_path)
     features = fu_dat.drop(columns=["change1", "ts_code", "trade_date"])
     pcg = list(fu_dat["close"].pct_change())
-    returns = features.iloc[:, :7].astype(float).apply(np.log).diff()
+    # returns = features.iloc[:, :7].astype(float).apply(np.log).diff()
     # returns = features.iloc[:, :7].pct_change()
-    for i in range(7):
-        features.iloc[:, i] = cal_zscore(returns.iloc[:, i].values)
+    # for i in range(7):
+    #     features.iloc[:, i] = cal_zscore(returns.iloc[:, i].values)
     pcg_df = pd.DataFrame({"pcg_zscore": cal_zscore(pcg)})
-    pd.concat([features, pcg_df], axis=1, ignore_index=True).to_csv("original_data.csv")
     data = pd.concat(
         [features.iloc[:-1, :], pcg_df.iloc[1:, :].reset_index(drop=True)],
         axis=1,

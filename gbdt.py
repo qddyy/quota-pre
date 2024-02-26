@@ -11,11 +11,13 @@ def trans_class_num(cls: list):
 
 
 num_round = 10
+# 重采样
 ros = RandomOverSampler(random_state=42)
 data = make_data("IC.CFX")
 x = data.iloc[:, :-1].reset_index(drop=True)
 y = data.iloc[:, -1].apply(tag_zs).apply(trans_class_num).reset_index(drop=True)
 x_resampled, y_resampled = ros.fit_resample(x, y)
+# 模型训练
 x_train, x_test, y_train, y_test = train_test_split(
     x_resampled, y_resampled, test_size=0.2
 )
@@ -28,6 +30,8 @@ params = {
 }
 bst = lgb.train(params, train_data, num_round)
 bst.save_model("model.txt")
+
+# 模型效果评估
 y_pred = bst.predict(x_test)
 y_pred = pd.Series(map(lambda x: x.argmax(), y_pred))
 accuracy = accuracy_score(y_test, y_pred)
