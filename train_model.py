@@ -4,46 +4,24 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import torch
-from torch.utils.data import DataLoader, TensorDataset
+from torch.utils.data import DataLoader
 import torch.nn.functional as F
 from torch.optim.optimizer import Optimizer
 
 
-from data.lstm_datloader import cal_zscore, make_seqs, make_lstm_data
+from data.lstm_datloader import make_lstm_data
 from model.convLstm import ConvLSTM
 from model.cnn_lstm import Args, CNN_LSTM
+from model.vgg_lstm import VGG_LSTM
 
 
-batch_size = 128
+batch_size = 64
 input_dim = 20
-hidden_dim = 60
-seq_len = 30
-height = 1
-width = 1
-kernel_size = (3, 3)
+hidden_dim = 100
+seq_len = 50
 num_layers = 1
 class_num = 5
-batch_first = True  # 如果您的输入数据的第一个维度是 batch 维度，则设置为 True
-bias = True
-return_all_layers = False  # 如果只需要最后一层的输出，则设置为 False
-
-args = Args(
-    input_dim,
-    hidden_dim,
-    num_layers,
-    batch_first,
-    batch_size,
-    class_num,
-    batch_size // 2,
-    kernel_size,
-    0.5,
-)
-
-model = ConvLSTM(
-    input_dim, hidden_dim, kernel_size, num_layers, batch_first, bias, return_all_layers
-)
-
-cnn_lstm_model = CNN_LSTM(args)
+batch_first = True
 
 
 def add_data(data: torch.Tensor, batch_size: int):
@@ -116,8 +94,60 @@ def train_cnn_lstm(
             )
 
 
+def train_vgg_lstm(
+    model: torch.nn.Module,
+    data: DataLoader,
+    optimizer: Optimizer,
+    criterion: torch.nn.MSELoss,
+    epochs=500,
+):
+    errors = []
+    rmses = []
+    accs = []
+    for t in range(epochs):
+        # Process each mini-batch in turn:
+        for x, y_actual in data:
+            y_pred = model(x)
+            y_actual = y_actual[:, -1, :]
+            # Compute and print loss
+            loss = criterion(
+                y_pred.to(dtype=torch.float), y_actual.to(dtype=torch.float)
+            )
+            # Zero gradients, perform a backward pass, and update the weights.
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+        # Epoch ending, so now fit the coefficients based on all data:
+        for x, y_actual in data:
+            # Get the error rate for the whole batch:
+            y_pred = model(x)
+            y_actual = y_actual[:, -1, :]
+            mse, rmse, perc_loss = calc_error(y_pred, y_actual)
+            pred = torch.zeros_like(y_pred)
+            batch_num = y_pred.size(0)
+            for i in range(batch_num):
+                max_ind = y_pred[i].argmax()
+                pred[i][max_ind] = 1
+            corrects = (pred.data == y_actual.data).all(dim=1).sum()
+            acc = corrects / batch_num * 100
+            accs.append(acc)
+            errors.append(perc_loss)
+            rmses.append(rmse)
+        # Print some progress information as the net is trained:
+        if epochs < 30 or t % 10 == 0:
+            print(
+                "epoch {:4d}: RMSE={:.5f} ={:.2f}, Accracy={:.5f}%".format(
+                    t,
+                    sum(rmses) / len(rmses),
+                    sum(errors) / len(errors),
+                    sum(accs) / len(accs),
+                )
+            )
+
+
 if __name__ == "__main__":
     data = make_lstm_data("IC.CFX", batch_size, seq_len)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     criterion = torch.nn.MSELoss(reduction="sum")
-    train_cnn_lstm(cnn_lstm_model, data, optimizer, criterion)
+    model = VGG_LSTM(5, 20, seq_len, hidden_dim)
+    train_vgg_lstm(model, data, optimizer, criterion)

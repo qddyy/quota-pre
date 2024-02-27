@@ -20,7 +20,6 @@ class Args:
         class_num,
         kernel_num,
         kernel_sizes,
-        dropout,
         cuda=False,
     ) -> None:
         self.lstm_hidden_dim = lstm_hidden_dim
@@ -29,7 +28,6 @@ class Args:
         self.class_num = class_num
         self.kernel_num = kernel_num
         self.kernel_sizes = kernel_sizes
-        self.dropout = dropout
         self.cuda = cuda
         self.batch_first = batch_first
         self.batch_size = batch_size
@@ -51,13 +49,11 @@ class CNN_LSTM(nn.Module):
         self.convs1 = [
             nn.Conv2d(Ci, Co, (K, 5), padding=((K - 1) // 2, 0)) for K in Ks
         ]  # (kernel_num, high, width)
-        self.dropout = nn.Dropout(args.dropout)
 
         # LSTM
         self.lstm = nn.LSTM(
             args.input_size,
             self.hidden_dim,
-            dropout=args.dropout,
             num_layers=self.num_layers,
             batch_first=True,
         )
