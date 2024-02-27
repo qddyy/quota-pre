@@ -1,3 +1,4 @@
+from typing import Literal
 import lightgbm as lgb
 import pandas as pd
 from sklearn.metrics import accuracy_score
@@ -5,22 +6,39 @@ from sklearn.model_selection import train_test_split
 from imblearn.over_sampling import RandomOverSampler
 from data.lstm_datloader import make_data, mark_zscore, tag_zs
 
+num_round = 10
+
 
 def trans_class_num(cls: list):
     return cls.index(max(cls))
 
 
-num_round = 10
-# 重采样
-ros = RandomOverSampler(random_state=42)
-data = make_data("IC.CFX")
-x = data.iloc[:, :-1].reset_index(drop=True)
-y = data.iloc[:, -1].apply(tag_zs).apply(trans_class_num).reset_index(drop=True)
-x_resampled, y_resampled = ros.fit_resample(x, y)
+def split_data(code: Literal["IC.CFX", "IF.CFX", "IH.CFX", "IM.CFX"]):
+    # 重采样
+    ros = RandomOverSampler(random_state=42)
+    train_data, test_data = make_data("IC.CFX")
+    x_train = train_data.iloc[:, :-1].reset_index(drop=True)
+    y_train = (
+        train_data.iloc[:, -1]
+        .apply(tag_zs)
+        .apply(trans_class_num)
+        .reset_index(drop=True)
+    )
+    x_test = test_data.iloc[:, :-1].reset_index(drop=True)
+    y_test = (
+        test_data.iloc[:, -1]
+        .apply(tag_zs)
+        .apply(trans_class_num)
+        .reset_index(drop=True)
+    )
+    x_resampled, y_resampled = ros.fit_resample(x_train, y_train)
+    x_test_resampled, y_test_resampled = ros.fit_resample(x_test, y_test)
+    return x_resampled, y_resampled, x_test_resampled, y_test_resampled
+
+
+x_train, y_train, x_test, y_test = split_data("IC.CFX")
+
 # 模型训练
-x_train, x_test, y_train, y_test = train_test_split(
-    x_resampled, y_resampled, test_size=0.2
-)
 train_data = lgb.Dataset(x_train, label=y_train)
 params = {
     "num_leaves": 31,

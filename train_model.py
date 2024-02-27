@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from torch.optim.optimizer import Optimizer
 
 
-from data.lstm_datloader import make_lstm_data
+from data.lstm_datloader import lstm_test_data, lstm_train_data
 from model.convLstm import ConvLSTM
 from model.cnn_lstm import Args, CNN_LSTM
 from model.vgg_lstm import VGG_LSTM
@@ -18,7 +18,7 @@ from model.vgg_lstm import VGG_LSTM
 batch_size = 64
 input_dim = 20
 hidden_dim = 100
-seq_len = 50
+seq_len = 5
 num_layers = 1
 class_num = 5
 batch_first = True
@@ -46,7 +46,6 @@ def train_vgg_lstm(
         # Process each mini-batch in turn:
         for x, y_actual in data:
             y_pred = model(x)
-            y_actual = y_actual[:, -1, :]
             # Compute and print loss
             loss = criterion(
                 y_pred.to(dtype=torch.float), y_actual.to(dtype=torch.float)
@@ -59,7 +58,6 @@ def train_vgg_lstm(
         for x, y_actual in data:
             # Get the error rate for the whole batch:
             y_pred = model(x)
-            y_actual = y_actual[:, -1, :]
             mse, rmse, perc_loss = calc_error(y_pred, y_actual)
             pred = torch.zeros_like(y_pred)
             batch_num = y_pred.size(0)
@@ -84,7 +82,7 @@ def train_vgg_lstm(
 
 
 if __name__ == "__main__":
-    data = make_lstm_data("IC.CFX", batch_size, seq_len)
+    data = lstm_train_data("IC.CFX", batch_size, seq_len)
     model = VGG_LSTM(5, 20, seq_len, hidden_dim)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     criterion = torch.nn.MSELoss(reduction="sum")
