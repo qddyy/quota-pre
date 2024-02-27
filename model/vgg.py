@@ -14,7 +14,6 @@ def vgg_block(num_convs, in_channels, out_channels):
 
 def vgg(conv_arch, input_dim: int, seq_len: int):
     conv_blks = []
-    orin_seq_len = seq_len
     in_channels = 1  # 卷积层部分
     for num_convs, out_channels in conv_arch:
         conv_blks.append(vgg_block(num_convs, in_channels, out_channels))
@@ -23,10 +22,18 @@ def vgg(conv_arch, input_dim: int, seq_len: int):
         seq_len //= 2
     return nn.Sequential(
         *conv_blks,
-        nn.Flatten(),  # 全连接层部分
-        nn.Linear(out_channels * input_dim * seq_len, 4096),
-        nn.ReLU(),
-        nn.Linear(4096, 4096),
+        # nn.Flatten(),  # 全连接层部分
+        # nn.Linear(out_channels * input_dim * seq_len, 4096),
+        # nn.ReLU(),
+        # nn.Linear(4096, 4096),
         # nn.ReLU(),
         # nn.Linear(4096, 10)
     )
+
+
+conv_arch = ((1, 64), (1, 128))
+vgg2 = vgg(conv_arch, 20, 50)
+x = torch.rand(64, 1, 50, 20)
+for vgg1 in vgg2:
+    x = vgg1(x)
+    print(x.shape)
