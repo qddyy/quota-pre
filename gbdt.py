@@ -1,10 +1,9 @@
-from typing import Literal
+﻿from typing import Literal
 import lightgbm as lgb
 import pandas as pd
 from sklearn.metrics import accuracy_score
-from sklearn.model_selection import train_test_split
 from imblearn.over_sampling import RandomOverSampler
-from data.lstm_datloader import make_data, mark_zscore, tag_zs
+from data.lstm_datloader import make_data, tag_zs
 
 num_round = 10
 
