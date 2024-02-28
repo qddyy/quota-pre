@@ -9,19 +9,36 @@ import torch.nn.functional as F
 from torch.optim.optimizer import Optimizer
 
 
-from data.lstm_datloader import lstm_test_data, lstm_train_data
-from model.convLstm import ConvLSTM
-from model.cnn_lstm import Args, CNN_LSTM
+from data.lstm_datloader import lstm_train_data
 from model.vgg_lstm import VGG_LSTM
 
 
 batch_size = 64
 input_dim = 20
 hidden_dim = 100
-seq_len = 5
+seq_len = 50
 num_layers = 1
 class_num = 5
 batch_first = True
+
+
+class CustomLoss(torch.nn.Module):
+    def __init__(self):
+        super(CustomLoss, self).__init__()
+        self.distance = torch.tensor([-0.5, -0.34, 0, 0.34, 0.5], dtype=float)
+        self.wight = torch.tensor([0, 0.16, 0.25, 0.28, 0.25])
+
+    def forward(self, output, target):
+        # 在这里实现自定义的损失计算逻辑
+        assert (
+            output.size() == target.size()
+        ), "the size of output should mathch the target"
+        for i in range(target.size(0)):
+            delta = target[i].argmax() * self.wight - 0.5
+            dis = abs(self.distance - delta)
+            target[i] = dis
+        loss = abs(output - target).sum() / target.size(0)  # 例如，这里计算均方误差损失
+        return loss
 
 
 def calc_error(y_pred, y_actual):
@@ -79,11 +96,12 @@ def train_vgg_lstm(
                     sum(accs) / len(accs),
                 )
             )
+    torch.save(model.state_dict(), "vgg_lstm_model.pth")
 
 
 if __name__ == "__main__":
     data = lstm_train_data("IC.CFX", batch_size, seq_len)
     model = VGG_LSTM(5, 20, seq_len, hidden_dim)
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-    criterion = torch.nn.MSELoss(reduction="sum")
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+    criterion = CustomLoss()
     train_vgg_lstm(model, data, optimizer, criterion)

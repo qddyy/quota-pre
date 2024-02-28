@@ -23,7 +23,7 @@ class VGG_LSTM(nn.Module):
 
         # LSTM层
         self.lstm = nn.LSTM(
-            input_size=512,
+            input_size=self.input_dim,
             hidden_size=self.lstm_hidden_dim,
             num_layers=self.lstm_num_layers,
             batch_first=True,
@@ -40,7 +40,7 @@ class VGG_LSTM(nn.Module):
 
         # 将特征转换为LSTM需要的格式
         features = features.view(
-            features.size(0), -1, 16
+            features.size(0), -1, self.input_dim
         )  # (batch_size, sequence_length, feature_size)
 
         # LSTM层的前向传播

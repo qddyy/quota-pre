@@ -52,13 +52,15 @@ def make_data(code: str) -> pd.DataFrame:
         data[data["trade_date"] < 20220913]
         .iloc[1:, :]
         .drop(columns=["trade_date"])
-        .reset_index()
+        .reset_index(drop=True)
     )
     test_data = (
-        data[data["trade_date"] >= 20220913].drop(columns=["trade_date"]).reset_index()
+        data[data["trade_date"] >= 20220913]
+        .drop(columns=["trade_date"])
+        .reset_index(drop=True)
     )
-    train_data.to_csv(Path(__file__).parent / f"{code}_train_data.csv")
-    test_data.to_csv(Path(__file__).parent / f"{code}_test_data.csv")
+    train_data.to_csv(Path(__file__).parent / f"{code}_train_data.csv", index=False)
+    test_data.to_csv(Path(__file__).parent / f"{code}_test_data.csv", index=False)
     return train_data, test_data
 
 
@@ -73,13 +75,17 @@ def lstm_data(
             data, _ = make_data(code)
         else:
             _, data = make_data(code)
-    ros = RandomOverSampler(random_state=42)
-    x = data.iloc[:, :-1].to_numpy(dtype=float)
-    y = np.array(mark_zscore(data.iloc[:, -1]))
+    ros = RandomOverSampler()
+    x = torch.tensor(data.iloc[:, :-1].to_numpy(), dtype=torch.float32)
+    y = mark_zscore(data.iloc[:, -1].values)
+    y = torch.tensor(y, dtype=torch.float32)
+    x = make_seqs(seq_len, x)
+    x = x.view(x.size(0), -1).numpy()
+    y = make_seqs(seq_len, y)[:, -1, :].numpy()
     x_resampled, y_resampled = ros.fit_resample(x, y)
-    x = torch.tensor(x_resampled, dtype=torch.float32)
+    x = torch.tensor(x_resampled, dtype=torch.float32).view(-1, seq_len, 20)
     y = torch.tensor(y_resampled, dtype=torch.float32)
-    dataset = TensorDataset(make_seqs(seq_len, x), make_seqs(seq_len, y)[:, -1, :])
+    dataset = TensorDataset(x, y)
     data_loader = DataLoader(dataset, batch_size=batch_size)
     return data_loader
 
@@ -98,4 +104,6 @@ def lstm_test_data(code: str, batch_size: int, seq_len: int):
 
 
 if __name__ == "__main__":
-    print(lstm_train_data("IF.CFX", 64, 50))
+    datald = lstm_train_data("IF.CFX", 64, 50)
+    for x, y in datald:
+        print(x[:, :, 0], x.shape)
