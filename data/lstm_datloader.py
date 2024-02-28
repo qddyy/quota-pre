@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import DataLoader, TensorDataset
-from imblearn.over_sampling import RandomOverSampler
+from imblearn.over_sampling import SMOTE
 
 
 def tag_zs(zs: float) -> list:
@@ -40,9 +40,12 @@ def make_data(code: str) -> pd.DataFrame:
     features = fu_dat.drop(columns=["change1", "ts_code"])
     pcg = list(fu_dat["close"].pct_change())
     returns = features.iloc[:, 1:8].astype(float).apply(np.log).diff()
+    indicaters = features.iloc[:, 8:-1].astype(float)
     # returns = features.iloc[:, 1:7].pct_change()
     for i in range(1, 8):
         features.iloc[:, i] = cal_zscore(returns.iloc[:, i - 1].values)
+    for i in range(8, 20):
+        features.iloc[:, i] = cal_zscore(indicaters.iloc[:, i - 8].values)
     pcg_df = pd.DataFrame({"pcg_zscore": cal_zscore(pcg)})
     data = pd.concat(
         [features.iloc[:-1, :], pcg_df.iloc[1:, :].reset_index(drop=True)],
@@ -75,7 +78,7 @@ def lstm_data(
             data, _ = make_data(code)
         else:
             _, data = make_data(code)
-    ros = RandomOverSampler()
+    ros = SMOTE()
     x = torch.tensor(data.iloc[:, :-1].to_numpy(), dtype=torch.float32)
     y = mark_zscore(data.iloc[:, -1].values)
     y = torch.tensor(y, dtype=torch.float32)
@@ -106,4 +109,4 @@ def lstm_test_data(code: str, batch_size: int, seq_len: int):
 if __name__ == "__main__":
     datald = lstm_train_data("IF.CFX", 64, 50)
     for x, y in datald:
-        print(x[:, :, 0], x.shape)
+        print(x.shape, y.shape)

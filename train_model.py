@@ -25,19 +25,21 @@ batch_first = True
 class CustomLoss(torch.nn.Module):
     def __init__(self):
         super(CustomLoss, self).__init__()
+        # self.distance = torch.tensor([-0.5, -0.34, 0, 0.34, 0.5], dtype=float)
         self.distance = torch.tensor([-0.5, -0.34, 0, 0.34, 0.5], dtype=float)
-        self.wight = torch.tensor([0, 0.16, 0.25, 0.28, 0.25])
 
     def forward(self, output, target):
         # 在这里实现自定义的损失计算逻辑
         assert (
             output.size() == target.size()
         ), "the size of output should mathch the target"
+        targe_dis = torch.zeros_like(target, dtype=float)
         for i in range(target.size(0)):
-            delta = target[i].argmax() * self.wight - 0.5
+            arg = target[i].argmax()
+            delta = self.distance[arg]
             dis = abs(self.distance - delta)
-            target[i] = dis
-        loss = abs(output - target).sum() / target.size(0)  # 例如，这里计算均方误差损失
+            targe_dis[i] = dis
+        loss = torch.pow((output * targe_dis), 2).sum() / targe_dis.size(0)
         return loss
 
 
@@ -54,7 +56,7 @@ def train_vgg_lstm(
     data: DataLoader,
     optimizer: Optimizer,
     criterion: torch.nn.MSELoss,
-    epochs=500,
+    epochs=300,
 ):
     errors = []
     rmses = []
@@ -102,6 +104,7 @@ def train_vgg_lstm(
 if __name__ == "__main__":
     data = lstm_train_data("IC.CFX", batch_size, seq_len)
     model = VGG_LSTM(5, 20, seq_len, hidden_dim)
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
-    criterion = CustomLoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    # criterion = CustomLoss()
+    criterion = torch.nn.MSELoss(reduce="mean")
     train_vgg_lstm(model, data, optimizer, criterion)
