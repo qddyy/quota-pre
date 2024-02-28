@@ -8,7 +8,7 @@ model_path = Path(__file__).parent / "vgg_lstm_model.pth"
 test_data = lstm_test_data("IC.CFX", 64, 50)
 criterion = torch.nn.MSELoss(reduction="sum")
 model = VGG_LSTM(5, 20, 50, 100)
-model.load_state_dict(torch.load(model_path)())
+model.load_state_dict(torch.load(model_path))
 model.eval()
 test_loss = 0
 correct = 0
