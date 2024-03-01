@@ -25,7 +25,6 @@ batch_first = True
 class CustomLoss(torch.nn.Module):
     def __init__(self):
         super(CustomLoss, self).__init__()
-        # self.distance = torch.tensor([-0.5, -0.34, 0, 0.34, 0.5], dtype=float)
         self.distance = torch.tensor([-0.5, -0.34, 0, 0.34, 0.5], dtype=float)
 
     def forward(self, output, target):
@@ -33,13 +32,13 @@ class CustomLoss(torch.nn.Module):
         assert (
             output.size() == target.size()
         ), "the size of output should mathch the target"
-        targe_dis = torch.zeros_like(target, dtype=float)
+        err_multi = torch.zeros_like(target, dtype=float)
         for i in range(target.size(0)):
             arg = target[i].argmax()
             delta = self.distance[arg]
             dis = abs(self.distance - delta)
-            targe_dis[i] = dis
-        loss = torch.pow((output * targe_dis), 2).sum() / targe_dis.size(0)
+            err_multi[i] = dis + 1
+        loss = torch.pow((output - target) * err_multi, 2).sum() / target.size(0)
         return loss
 
 
@@ -56,7 +55,7 @@ def train_vgg_lstm(
     data: DataLoader,
     optimizer: Optimizer,
     criterion: torch.nn.MSELoss,
-    epochs=300,
+    epochs=700,
 ):
     errors = []
     rmses = []
@@ -103,8 +102,8 @@ def train_vgg_lstm(
 
 if __name__ == "__main__":
     data = lstm_train_data("IC.CFX", batch_size, seq_len)
-    model = VGG_LSTM(5, 20, seq_len, hidden_dim)
+    model = VGG_LSTM(5, 20, seq_len, hidden_dim, 1)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-    # criterion = CustomLoss()
-    criterion = torch.nn.MSELoss(reduce="mean")
-    train_vgg_lstm(model, data, optimizer, criterion)
+    criterion = CustomLoss()
+    # criterion = torch.nn.MSELoss(reduce="mean")
+    train_vgg_lstm(model, data, optimizer, criterion, 700)

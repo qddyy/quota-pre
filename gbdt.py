@@ -34,7 +34,11 @@ def flat_data(
     )
 
 
-def split_data(code: Literal["IC.CFX", "IF.CFX", "IH.CFX", "IM.CFX"]):
+def split_data(
+    code: Literal["IC.CFX", "IF.CFX", "IH.CFX", "IM.CFX"],
+    windows: int,
+    resample: bool = True,
+):
     # 重采样
     ros = RandomOverSampler(random_state=42)
     train_data, test_data = make_data("IC.CFX")
@@ -45,30 +49,33 @@ def split_data(code: Literal["IC.CFX", "IF.CFX", "IH.CFX", "IM.CFX"]):
     y_test = (
         y_test.iloc[:, -1].apply(tag_zs).apply(trans_class_num).reset_index(drop=True)
     )
-    x_resampled, y_resampled = ros.fit_resample(x_train, y_train)
-    x_test_resampled, y_test_resampled = ros.fit_resample(x_test, y_test)
-    return x_resampled, y_resampled, x_test_resampled, y_test_resampled
+    if resample:
+        x_train, y_train = ros.fit_resample(x_train, y_train)
+        x_test, y_test = ros.fit_resample(x_test, y_test)
+    return x_train, y_train, x_test, y_test
 
 
-x_train, y_train, x_test, y_test = split_data("IC.CFX")
+if __name__ == "__main__":
+    x_train, y_train, x_test, y_test = split_data("IC.CFX", windows)
 
-# 模型训练
-train_data = lgb.Dataset(x_train, label=y_train)
-params = {
-    "num_leaves": 31,
-    "num_trees": 100,
-    "metric": "multi_error",
-    "objective": "multiclass",
-    "num_class": 5,
-}
-bst = lgb.train(params, train_data, num_round)
-bst.save_model("model.txt")
+    # # 模型训练
+    # train_data = lgb.Dataset(x_train, label=y_train)
+    # params = {
+    #     "num_leaves": 31,
+    #     "num_trees": 100,
+    #     "metric": "multi_error",
+    #     "objective": "multiclass",
+    #     "num_class": 5,
+    # }
+    # bst = lgb.train(params, train_data, num_round)
+    # bst.save_model("model.txt")
 
-# 模型效果评估
-y_pred = bst.predict(x_test)
-y_pred = pd.Series(map(lambda x: x.argmax(), y_pred))
-accuracy = accuracy_score(y_test, y_pred)
-y_test.index = range(0, len(y_test.index))
-y_pred = y_pred
-print(sum(y_test == y_pred) / len(y_pred))
-print(accuracy)
+    # # 模型效果评估
+    # y_pred = bst.predict(x_test)
+    # y_pred = pd.Series(map(lambda x: x.argmax(), y_pred))
+    # accuracy = accuracy_score(y_test, y_pred)
+    # y_test.index = range(0, len(y_test.index))
+    # y_pred = y_pred
+    # print(sum(y_test == y_pred) / len(y_pred))
+    # print(accuracy)
+    print(x_test.shape)

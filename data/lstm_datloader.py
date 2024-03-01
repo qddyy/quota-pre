@@ -34,7 +34,7 @@ def mark_zscore(zscores: list):
     return list(map(tag_zs, zscores))
 
 
-def make_data(code: str) -> pd.DataFrame:
+def make_data(code: str) -> tuple[pd.DataFrame, pd.DataFrame]:
     file_path = Path(__file__).parent / f"{code}.csv"
     fu_dat = pd.read_csv(file_path)
     features = fu_dat.drop(columns=["change1", "ts_code"])
@@ -68,7 +68,11 @@ def make_data(code: str) -> pd.DataFrame:
 
 
 def lstm_data(
-    code: str, batch_size: int, seq_len: int, datype: Literal["train", "test"]
+    code: str,
+    batch_size: int,
+    seq_len: int,
+    datype: Literal["train", "test"],
+    shuffule: bool = True,
 ) -> DataLoader:
     data_path = Path(__file__).parent / f"{code}_{datype}_data.csv"
     if os.path.exists(data_path):
@@ -89,7 +93,7 @@ def lstm_data(
     x = torch.tensor(x_resampled, dtype=torch.float32).view(-1, seq_len, 20)
     y = torch.tensor(y_resampled, dtype=torch.float32)
     dataset = TensorDataset(x, y)
-    data_loader = DataLoader(dataset, batch_size=batch_size)
+    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffule)
     return data_loader
 
 
@@ -102,11 +106,11 @@ def lstm_train_data(code: str, batch_size: int, seq_len: int):
     return lstm_data(code, batch_size, seq_len, "train")
 
 
-def lstm_test_data(code: str, batch_size: int, seq_len: int):
-    return lstm_data(code, batch_size, seq_len, "test")
+def lstm_test_data(code: str, batch_size: int, seq_len: int, shuffle: bool = True):
+    return lstm_data(code, batch_size, seq_len, "test", shuffule=shuffle)
 
 
 if __name__ == "__main__":
     datald = lstm_train_data("IF.CFX", 64, 50)
-    for x, y in datald:
-        print(x.shape, y.shape)
+    dat = datald.dataset.tensors
+    print(dat[0].shape)
