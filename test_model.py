@@ -3,10 +3,12 @@ import os
 from pathlib import Path
 from data.lstm_datloader import lstm_test_data
 from model.vgg_lstm import VGG_LSTM
+from train_model import CustomLoss
 
 model_path = Path(__file__).parent / "vgg_lstm_model.pth"
 test_data = lstm_test_data("IC.CFX", 64, 50)
-criterion = torch.nn.MSELoss(reduction="sum")
+# criterion = torch.nn.MSELoss(reduction="sum")
+criterion = CustomLoss()
 model = VGG_LSTM(5, 20, 50, 100)
 model.load_state_dict(torch.load(model_path))
 model.eval()
