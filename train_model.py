@@ -38,27 +38,18 @@ class CustomLoss(torch.nn.Module):
             delta = self.distance[arg]
             dis = abs(self.distance - delta)
             err_multi[i] = dis + 1
-        loss = torch.pow((output - target) * err_multi, 2).sum() / target.size(0)
+        loss = torch.pow((output - target) * err_multi, 1).sum() / target.size(0)
         return loss
-
-
-def calc_error(y_pred, y_actual):
-    with torch.no_grad():
-        tot_loss = F.mse_loss(y_pred, y_actual)
-        rmse = torch.sqrt(tot_loss).item()
-        perc_loss = torch.mean(100.0 * torch.abs((y_pred - y_actual) / y_actual))
-    return (tot_loss, rmse, perc_loss)
 
 
 def train_vgg_lstm(
     model: torch.nn.Module,
     data: DataLoader,
     optimizer: Optimizer,
-    criterion: torch.nn.MSELoss,
+    criterion: torch.nn.Module,
     epochs=700,
 ):
-    errors = []
-    rmses = []
+    losses = []
     accs = []
     for t in range(epochs):
         # Process each mini-batch in turn:
@@ -76,7 +67,9 @@ def train_vgg_lstm(
         for x, y_actual in data:
             # Get the error rate for the whole batch:
             y_pred = model(x)
-            mse, rmse, perc_loss = calc_error(y_pred, y_actual)
+            loss = criterion(
+                y_pred.to(dtype=torch.float), y_actual.to(dtype=torch.float)
+            ).item()
             pred = torch.zeros_like(y_pred)
             batch_num = y_pred.size(0)
             for i in range(batch_num):
@@ -85,15 +78,13 @@ def train_vgg_lstm(
             corrects = (pred.data == y_actual.data).all(dim=1).sum()
             acc = corrects / batch_num * 100
             accs.append(acc)
-            errors.append(perc_loss)
-            rmses.append(rmse)
+            losses.append(loss)
         # Print some progress information as the net is trained:
         if epochs < 30 or t % 10 == 0:
             print(
-                "epoch {:4d}: RMSE={:.5f} ={:.2f}, Accracy={:.5f}%".format(
+                "epoch {:4d}: loss={:.5f}, Accracy={:.5f}%".format(
                     t,
-                    sum(rmses) / len(rmses),
-                    sum(errors) / len(errors),
+                    sum(losses) / len(losses),
                     sum(accs) / len(accs),
                 )
             )

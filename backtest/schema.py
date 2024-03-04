@@ -42,10 +42,10 @@ class futureAccount:
         "按照量买卖证券,限制买空不限制卖空"
         try:
             if volumes > 0:
-                if self.cash < price:
+                if self.cash < price * (1 + self.fu_overtoday_fee):
                     return
-                elif price * volumes > self.cash:
-                    volumes = int(self.cash / price)
+                elif price * volumes * (1 + self.fu_overtoday_fee) > self.cash:
+                    volumes = int(self.cash / price / (1 + self.fu_overtoday_fee))
             self.cash -= volumes * price
             if symbol not in self.pool:
                 self.pool[symbol] = {
@@ -58,6 +58,7 @@ class futureAccount:
                 self.pool[symbol]["price"] = price
             if self.pool[symbol]["volume"] == 0:
                 del self.pool[symbol]
+            self.cash -= abs(volumes * price) * self.fu_overtoday_fee
             self.calculate_portfolio_value()
             self.transactions[self.current_date] = {
                 "code": symbol,
@@ -102,5 +103,6 @@ class futureAccount:
                     volume = self.pool[symbol]["volume"]
                     security_value += price * volume
                 self.portfolio_value = self.cash + security_value
-        except:
-            pass
+                return self.portfolio_value
+        except Exception as e:
+            print(e)
