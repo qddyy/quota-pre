@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from collections import defaultdict
 
 
 class futureAccount:
@@ -12,7 +13,7 @@ class futureAccount:
     factors: list[str,]
     cash: float
     stand: str
-    transactions: dict[str:dict]
+    transactions: dict[list[str:dict]]
     current_date: str
 
     def __init__(
@@ -30,7 +31,7 @@ class futureAccount:
         self.fu_overtoday_fee = fu_overtoday_fee
         self.fu_intoday_fee = fu_intoday_fee
         self.portfolio_value = self.calculate_portfolio_value()
-        self.transactions = {}
+        self.transactions = defaultdict(list)
 
     def update_date(self, num: int):
         date_format = "%Y-%m-%d"
@@ -60,25 +61,27 @@ class futureAccount:
                 del self.pool[symbol]
             self.cash -= abs(volumes * price) * self.fu_overtoday_fee
             self.calculate_portfolio_value()
-            self.transactions[self.current_date] = {
-                "code": symbol,
-                "volume": volumes,
-                "price": price,
-            }
+            self.transactions[self.current_date].append(
+                {
+                    "code": symbol,
+                    "volume": volumes,
+                    "price": price,
+                }
+            )
         except Exception as e:
             print(e)
 
     def order_to(self, symbol: str, volumes: float, price: float):
         """购买股票到满仓的指定比例，volumes需要大于零"""
         try:
-            if self.cash < price:
+            if self.cash < price and volumes < 0:
                 return
             if volumes <= 0:
                 try:
                     total_volume = self.pool[symbol]["volume"]
                     volumes = -int(total_volume * (1 - volumes))
                 except KeyError:
-                    return
+                    volumes = int(self.cash * volumes / price)
             else:
                 volumes = int(self.cash / price * volumes)
             self.order(symbol, volumes, price)
@@ -88,6 +91,7 @@ class futureAccount:
     def update_price(self, price_dic: dict[str:float]) -> None:
         for stock in self.pool.keys():
             self.pool[stock]["price"] = price_dic[stock]
+            self.calculate_portfolio_value()
 
     def calculate_portfolio_value(self):
         """

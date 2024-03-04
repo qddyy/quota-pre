@@ -2,6 +2,8 @@ import os
 import sys
 import math
 from pathlib import Path
+from typing import Callable
+from datetime import datetime, timedelta
 
 
 import torch
@@ -71,10 +73,9 @@ def execut_signal(
     signals: torch.Tensor,
     price: float,
 ):
-    volumes_rate = (unilize(signals) * weight).sum().item()
-    # arg = signals.argmax().item()
-    # volumes_rate = weight[arg].item()
-    # # print(volumes_rate)
+    # volumes_rate = (unilize(signals) * weight).sum().item()
+    arg = signals.argmax().item()
+    volumes_rate = weight[arg].item()
     account.order_to(code, volumes_rate, price)
 
 
@@ -83,82 +84,123 @@ def generate_signal(data, model):
     return signals
 
 
+class strategy:
+    model: Callable
+    weight: torch.Tensor
+    has_signal: bool
+    pre_times: int
+    code: str
+    seq_len: int
+    orin_data: pd.DataFrame
+    test_data: pd.DataFrame
+    account: futureAccount
+    portfolio_values: list
+
+    def __init__(self, code: str, seq_len: int, test_data: pd.DataFrame) -> None:
+        self.code = code
+        self.pre_times = 0
+        self.signals = None
+        self.has_signal = False
+        self.seq_len = seq_len
+        self.test_data = test_data
+        self.orin_data = read_orin_data(code)
+        self.win_times = []
+        self.odds = {"win": [], "loss": []}
+        self.portfolio_values = []
+        self.weight = torch.tensor([-0.5, -0.2, 0.0, 0.2, 0.5], dtype=torch.float32)
+        self.account = futureAccount(current_date="2022-09-13", base=10000000, pool={})
+
+    def excute_stratgy(self, signal_gerater: Callable, model: Callable | None = None):
+        for i in range(len(self.orin_data)):
+            self.account.update_date(1)
+            price = self.orin_data.loc[i, ["close"]].item()
+            self.daily_settle(price)
+            if self.has_signal:
+                execut_signal(self.code, self.account, self.weight, self.signals, price)
+                self.has_signal = False
+            self.account.update_price({self.code: price})
+            self.portfolio_values.append(self.account.portfolio_value)
+            if (i + 1) >= self.seq_len and i <= len(self.orin_data) - self.seq_len:
+                self.signals = signal_gerater(self.test_data[self.pre_times], model)
+                self.pre_times += 1
+                self.has_signal = True
+
+    def daily_settle(self, current_price: float):
+        today = self.account.current_date
+        yesterday = roll_date(today)
+        if self.account.transactions and self.account.pool:
+            if yesterday in self.account.transactions.keys():
+                transacton = self.account.transactions[yesterday][-1]
+                old_price = transacton["price"]
+                volume = transacton["volume"]
+                self.account.order(self.code, -volume, current_price)
+                new_volum = self.account.transactions[today][-1]["volume"]
+                returns = -new_volum * current_price
+                pay = volume * old_price
+                intrest = returns - pay
+                if intrest > 0:
+                    self.win_times.append(1)
+                    self.odds["win"].append(intrest)
+                else:
+                    self.win_times.append(0)
+                    self.odds["loss"].append(abs(intrest))
+
+
+def lstm_sig_gener(data, model) -> torch.Tensor:
+    return generate_signal(data.unsqueeze(0), model)
+
+
+def roll_date(date: str):
+    date_format = "%Y-%m-%d"
+    old_date = datetime.strptime(date, date_format)
+    new_date = (old_date + timedelta(days=-1)).strftime(date_format)
+    return new_date
+
+
 def vgg_lstm_strategy(code: str, seq_len: int):
-    pre_times = 0
-    signals = None
-    portfolio_values = []
     model_path = Path(__file__).parent.parent / "vgg_lstm_model.pth"
     model = VGG_LSTM(5, 20, 50, 100)
     model.load_state_dict(torch.load(model_path))
-    has_siganl = False
-    weight = torch.tensor([-0.5, -0.2, 0.0, 0.2, 0.5], dtype=torch.float32)
-    account = futureAccount(current_date="2022-09-13", base=10000000, pool={})
-    data = read_orin_data(code)
     test_data = make_vgg_data(code, seq_len)
-    for i in range(len(data)):
-        account.update_date(1)
-        price = data.loc[i, ["close"]].item()
-        if has_siganl:
-            execut_signal(code, account, weight, signals, price)
-            has_siganl = False
-        account.update_price({code: price})
-        portfolio_values.append(account.portfolio_value)
-        if (i + 1) >= seq_len and i <= len(data) - seq_len:
-            signals = generate_signal(test_data[pre_times].unsqueeze(0), model)
-            pre_times += 1
-            has_siganl = True
-    return [v / portfolio_values[0] for v in portfolio_values]
+    executer = strategy(code, seq_len, test_data)
+    executer.excute_stratgy(lstm_sig_gener, model)
+    portfolio_values = executer.portfolio_values
+    win_rate = sum(executer.win_times) / len(executer.win_times)
+    odds = sum(list(executer.odds["win"])) / sum(list(executer.odds["loss"]))
+    # print(executer.account.transactions)
+    return [v / portfolio_values[0] for v in portfolio_values], win_rate, odds
+
+
+def gbdt_sig_gener(data, model) -> torch.Tensor:
+    s = generate_signal([data.to_numpy()], model).squeeze()
+    signals = torch.tensor(s, dtype=torch.float32)
+    return signals
+
+
+def random_gener(data, model) -> torch.Tensor:
+    return torch.randn(5)
 
 
 def gbdt_strategy(code: str, seq_len: int):
-    pre_times = 0
-    signals = None
-    portfolio_values = []
     model_path = Path(__file__).parent.parent / "model.txt"
     model = lgb.Booster(model_file=model_path).predict
-    has_siganl = False
-    weight = torch.tensor([-0.5, -0.2, 0.0, 0.2, 0.5], dtype=torch.float32)
-    account = futureAccount(current_date="2022-09-13", base=10000000, pool={})
-    data = read_orin_data(code)
-    test_data = make_gbdt_data(code, seq_len)
-    for i in range(len(data)):
-        account.update_date(1)
-        price = data.loc[i, ["close"]].item()
-        if has_siganl:
-            execut_signal(code, account, weight, signals, price)
-            has_siganl = False
-        account.update_price({code: price})
-        portfolio_values.append(account.portfolio_value)
-        if (i + 1) >= seq_len and i <= len(data) - seq_len:
-            s = generate_signal([test_data.iloc[pre_times].to_numpy()], model).squeeze()
-            signals = torch.tensor(s, dtype=torch.float32)
-            pre_times += 1
-            has_siganl = True
-    return [v / portfolio_values[0] for v in portfolio_values]
+    test_data = make_gbdt_data(code, seq_len).iloc
+    executer = strategy(code, seq_len, test_data)
+    executer.excute_stratgy(gbdt_sig_gener, model)
+    portfolio_values = executer.portfolio_values
+    win_rate = sum(executer.win_times) / len(executer.win_times)
+    odds = sum(list(executer.odds["win"])) / sum(list(executer.odds["loss"]))
+    return [v / portfolio_values[0] for v in portfolio_values], win_rate, odds
 
 
 def random_strategy(code: str, seq_len: int):
-    pre_times = 0
-    signals = None
-    portfolio_values = []
-    has_siganl = False
-    weight = torch.tensor([-0.5, -0.2, 0.0, 0.2, 0.5], dtype=torch.float32)
-    account = futureAccount(current_date="2022-09-13", base=10000000, pool={})
-    data = read_orin_data(code)
-    for i in range(len(data)):
-        account.update_date(1)
-        price = data.loc[i, ["close"]].item()
-        if has_siganl:
-            execut_signal(code, account, weight, signals, price)
-            has_siganl = False
-        account.update_price({code: price})
-        account.calculate_portfolio_value()
-        portfolio_values.append(account.portfolio_value)
-        if (i + 1) >= seq_len and i <= len(data) - seq_len:
-            signals = torch.randn(5)
-            pre_times += 1
-            has_siganl = True
-    return [v / portfolio_values[0] for v in portfolio_values]
+    test_data = make_gbdt_data(code, seq_len)
+    executer = strategy(code, seq_len, test_data)
+    executer.excute_stratgy(random_gener)
+    portfolio_values = executer.portfolio_values
+    win_rate = sum(executer.win_times) / len(executer.win_times)
+    odds = sum(list(executer.odds["win"])) / sum(list(executer.odds["loss"]))
+    return [v / portfolio_values[0] for v in portfolio_values], win_rate, odds
 
 
 def bench_mark(code: str) -> pd.Series:
@@ -167,12 +209,11 @@ def bench_mark(code: str) -> pd.Series:
 
 
 if __name__ == "__main__":
-    gbdt_result = gbdt_strategy("IC.CFX", 50)
-    vgg_lstm_result = vgg_lstm_strategy("IC.CFX", 50)
-    random_result = random_strategy("IC.CFX", 50)
+    gbdt_result, gbdt_wrate, gbdt_odds = gbdt_strategy("IC.CFX", 50)
+    vgg_lstm_result, lstm_wrate, lstm_odds = vgg_lstm_strategy("IC.CFX", 50)
+    random_result, rand_wrate, rand_odds = random_strategy("IC.CFX", 50)
     bench_result = list(bench_mark("IC.CFX").values)
-    # print(pd.DataFrame(result).iloc[:, 0].values)
-    df = pd.DataFrame(
+    returns = pd.DataFrame(
         {
             "lstm": vgg_lstm_result,
             "gbdt": gbdt_result,
@@ -180,5 +221,13 @@ if __name__ == "__main__":
             "bench": bench_result,
         }
     )
-    df.dropna().plot()
+    rates = pd.DataFrame(
+        {
+            "strategy": ["lstm", "gbdt", "random"],
+            "win_rates": [lstm_wrate, gbdt_wrate, rand_wrate],
+            "odds": [lstm_odds, gbdt_odds, rand_odds],
+        }
+    )
+    print(rates)
+    returns.dropna().plot()
     plt.show()
