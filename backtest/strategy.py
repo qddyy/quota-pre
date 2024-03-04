@@ -5,6 +5,7 @@ from pathlib import Path
 
 
 import torch
+from torch.nn.functional import normalize
 import pandas as pd
 import pandas as np
 import matplotlib.pyplot as plt
@@ -37,7 +38,7 @@ def read_orin_data(code: str) -> pd.DataFrame:
     file_path = Path(__file__).parent.parent / f"data/{code}.csv"
     fu_dat = pd.read_csv(file_path)
     features = fu_dat.drop(columns=["change1", "ts_code"])
-    data = features.iloc[:-1, :-1]
+    data = features.iloc[:-1, :]
     test_data = (
         data[data["trade_date"] >= 20220913]
         .drop(columns=["trade_date"])
@@ -58,6 +59,11 @@ def make_gbdt_data(code: str, seq_len: int):
     return test_data.ffill()
 
 
+def unilize(signals: torch.Tensor) -> torch.Tensor:
+    normal = (signals - signals.min()) / (signals.max() - signals.min())
+    return normal / normal.sum()
+
+
 def execut_signal(
     code: str,
     account: futureAccount,
@@ -65,8 +71,10 @@ def execut_signal(
     signals: torch.Tensor,
     price: float,
 ):
-    volumes_rate = (signals * weight).sum().item()
-    print(volumes_rate)
+    volumes_rate = (unilize(signals) * weight).sum().item()
+    # arg = signals.argmax().item()
+    # volumes_rate = weight[arg].item()
+    # # print(volumes_rate)
     account.order_to(code, volumes_rate, price)
 
 
@@ -84,7 +92,7 @@ def vgg_lstm_strategy(code: str, seq_len: int):
     model.load_state_dict(torch.load(model_path))
     has_siganl = False
     weight = torch.tensor([-0.5, -0.2, 0.0, 0.2, 0.5], dtype=torch.float32)
-    account = futureAccount(current_date="2022-09-13")
+    account = futureAccount(current_date="2022-09-13", base=10000000, pool={})
     data = read_orin_data(code)
     test_data = make_vgg_data(code, seq_len)
     for i in range(len(data)):
@@ -99,7 +107,7 @@ def vgg_lstm_strategy(code: str, seq_len: int):
             signals = generate_signal(test_data[pre_times].unsqueeze(0), model)
             pre_times += 1
             has_siganl = True
-    return portfolio_values
+    return [v / portfolio_values[0] for v in portfolio_values]
 
 
 def gbdt_strategy(code: str, seq_len: int):
@@ -110,7 +118,7 @@ def gbdt_strategy(code: str, seq_len: int):
     model = lgb.Booster(model_file=model_path).predict
     has_siganl = False
     weight = torch.tensor([-0.5, -0.2, 0.0, 0.2, 0.5], dtype=torch.float32)
-    account = futureAccount(current_date="2022-09-13")
+    account = futureAccount(current_date="2022-09-13", base=10000000, pool={})
     data = read_orin_data(code)
     test_data = make_gbdt_data(code, seq_len)
     for i in range(len(data)):
@@ -122,13 +130,11 @@ def gbdt_strategy(code: str, seq_len: int):
         account.update_price({code: price})
         portfolio_values.append(account.portfolio_value)
         if (i + 1) >= seq_len and i <= len(data) - seq_len:
-            signals = torch.tensor(
-                generate_signal(test_data.iloc[pre_times, :], model),
-                dtype=torch.float32,
-            )
+            s = generate_signal([test_data.iloc[pre_times].to_numpy()], model).squeeze()
+            signals = torch.tensor(s, dtype=torch.float32)
             pre_times += 1
             has_siganl = True
-    return portfolio_values
+    return [v / portfolio_values[0] for v in portfolio_values]
 
 
 def random_strategy(code: str, seq_len: int):
@@ -137,7 +143,7 @@ def random_strategy(code: str, seq_len: int):
     portfolio_values = []
     has_siganl = False
     weight = torch.tensor([-0.5, -0.2, 0.0, 0.2, 0.5], dtype=torch.float32)
-    account = futureAccount(current_date="2022-09-13")
+    account = futureAccount(current_date="2022-09-13", base=10000000, pool={})
     data = read_orin_data(code)
     for i in range(len(data)):
         account.update_date(1)
@@ -152,12 +158,27 @@ def random_strategy(code: str, seq_len: int):
             signals = torch.randn(5)
             pre_times += 1
             has_siganl = True
-    return portfolio_values
+    return [v / portfolio_values[0] for v in portfolio_values]
+
+
+def bench_mark(code: str) -> pd.Series:
+    data = read_orin_data(code)
+    return data["close"] / data["close"][0]
 
 
 if __name__ == "__main__":
-    result = random_strategy("IC.CFX", 50)
+    gbdt_result = gbdt_strategy("IC.CFX", 50)
+    vgg_lstm_result = vgg_lstm_strategy("IC.CFX", 50)
+    random_result = random_strategy("IC.CFX", 50)
+    bench_result = list(bench_mark("IC.CFX").values)
     # print(pd.DataFrame(result).iloc[:, 0].values)
-    df = pd.DataFrame(result).iloc[:, 0] / pd.DataFrame(result).iloc[0, 0].item()
+    df = pd.DataFrame(
+        {
+            "lstm": vgg_lstm_result,
+            "gbdt": gbdt_result,
+            "random": random_result,
+            "bench": bench_result,
+        }
+    )
     df.dropna().plot()
     plt.show()

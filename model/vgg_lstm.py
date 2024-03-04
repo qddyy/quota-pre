@@ -51,8 +51,16 @@ class VGG_LSTM(nn.Module):
 
         # 全连接层的前向传播
         output = self.fc(lstm_out)
+        output = self.utlize(output)
 
         return output
+
+    def utlize(self, output: torch.Tensor):
+        max_ = output.max(dim=1).values.view(output.size(0), -1)
+        min_ = output.min(dim=1).values.view(output.size(0), -1)
+        util = (output - min_) / (max_ - min_)
+        util /= torch.sum(util, dim=1, keepdim=True)
+        return util.squeeze()
 
 
 if __name__ == "__main__":

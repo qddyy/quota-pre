@@ -58,24 +58,23 @@ def split_data(
 if __name__ == "__main__":
     x_train, y_train, x_test, y_test = split_data("IC.CFX", windows)
 
-    # # 模型训练
-    # train_data = lgb.Dataset(x_train, label=y_train)
-    # params = {
-    #     "num_leaves": 31,
-    #     "num_trees": 100,
-    #     "metric": "multi_error",
-    #     "objective": "multiclass",
-    #     "num_class": 5,
-    # }
-    # bst = lgb.train(params, train_data, num_round)
-    # bst.save_model("model.txt")
+    # 模型训练
+    train_data = lgb.Dataset(x_train, label=y_train)
+    params = {
+        "num_leaves": 31,
+        "num_trees": 100,
+        "metric": "multi_error",
+        "objective": "multiclass",
+        "num_class": 5,
+    }
+    bst = lgb.train(params, train_data, num_round)
+    bst.save_model("model.txt")
 
-    # # 模型效果评估
-    # y_pred = bst.predict(x_test)
-    # y_pred = pd.Series(map(lambda x: x.argmax(), y_pred))
-    # accuracy = accuracy_score(y_test, y_pred)
-    # y_test.index = range(0, len(y_test.index))
-    # y_pred = y_pred
-    # print(sum(y_test == y_pred) / len(y_pred))
-    # print(accuracy)
-    print(x_test.shape)
+    # 模型效果评估
+    y_pred = bst.predict(x_test)
+    y_pred = pd.Series(map(lambda x: x.argmax(), y_pred))
+    accuracy = accuracy_score(y_test, y_pred)
+    y_test.index = range(0, len(y_test.index))
+    y_pred = y_pred
+    print(sum(y_test == y_pred) / len(y_pred))
+    print(accuracy)
