@@ -1,0 +1,174 @@
+---
+title: title
+# subtitle: 
+# date: last-modified
+# date-format: YYYY-MM-DD
+author: dy
+error: false
+warning: false
+# echo: false
+fig-align: center
+format:
+  pdf:
+    # abstract: 
+    keep-tex: false
+    papersize: letter
+    documentclass: scrartcl # article <-> scrartcl; report <-> scrreprt; book <-> scrbook
+    # classoption:
+    # pagestyle: plain
+    geometry:
+      - top = 0.6in
+      - right = 0.8in
+      - bottom = 1in
+      - left = 0.8in
+    toc: true # {.unnumbered .unlisted}
+    toc-depth: 2
+    toc-title: Contents
+    number-sections: true # {.unnumbered}
+    number-depth: 3
+    number-offset: 0
+    shift-heading-level-by: -0
+    lof: false # include list of figures
+    lot: false # include list of tables
+    code-line-numbers: true
+    highlight-style: tango
+    df-print: kable
+    fig-align: center
+    fig-pos: H
+    fig-format: pdf
+    # fontsize: 
+    fontfamily: xecjk
+    colorlinks: true
+    linkcolor: Red
+    filecolor: Red
+    citecolor: Blue
+    urlcolor: Red
+    toccolor: JungleGreen
+    hyperrefoptions:
+      - hyperfootnotes = true
+    include-in-header:
+      text: |
+        \usepackage{bm}
+        \usepackage{mathrsfs}
+        \usepackage{extarrows}
+        \allowdisplaybreaks[4]
+    # include-before-body:
+    # include-after-body:
+    # cite-method: natbib
+    # biblio-title: 参考文献
+    # biblio-style:
+bibliography: references.bib
+# nocite: |
+#   @item1, @item2 # @*
+---
+
+
+{{< pagebreak >}}
+
+
+```{r}
+#| include: false
+
+setwd(this.path::this.dir())
+options(
+    knitr.kable.NA = "",
+    error = rlang::entrace,
+    rlang_backtrace_on_error = "full",
+    datatable.print.topn = 5,
+    datatable.print.nrows = 20,
+    datatable.print.class = TRUE,
+    datatable.print.keys = TRUE,
+    datatable.print.trunc.cols = TRUE
+)
+```
+
+```{r}
+library(mlr3verse)
+library(purrr)
+library(stringr)
+library(dplyr)
+library(ggplot2)
+library(magrittr)
+library(data.table)
+```
+
+## 读取
+
+```{r}
+dt <- 
+    map(
+        c("C"),
+        # c("F"),
+        ~ str_glue("../data/I{.x}.CFX.csv") %>% fread()
+    ) %>% 
+    rbindlist() %>% 
+    `[`(
+        , `:=`(ts_code = NULL, trade_date = NULL)
+    ) %>% `[`
+```
+
+## 探索
+
+```{r}
+dt %$% (change1 / close) %>% {(. - mean(.)) / sd(.)} %>% 
+    # hist()
+    # length()
+    sum(. < -1 %T>% print)
+    # sum(. > quantile(., 0.8) %T>% print)
+```
+
+## 建模
+
+```{r}
+task <- 
+    dt %>% copy() %>% 
+    `[`(, change1 := lead(change1)) %>% `[`(- .N) %>% 
+    `[`(
+        , class := {
+            percent <- (change1 / close) %>% {(. - mean(.)) / sd(.)}
+            fcase(
+                percent >= 1, 1,
+                0.2 <= percent & percent < 1, 2,
+                -0.2 < percent & percent < 0.2, 3,
+                -1 < percent & percent <= -0.2, 4,
+                percent <= -1, 5
+            )
+        }
+    ) %>% 
+    `[`(
+        , `:=`(change1 = NULL)
+    ) %>% 
+    as_task_classif(target = "class")
+
+split_index <- list(
+    train = seq.int(1, 1597),
+    test = seq.int(1598, 1912)
+)
+```
+
+```{r}
+learner <- 
+    # lrn("classif.PART")
+    # lrn("classif.abess")
+    # lrn("classif.lda")
+    lrn("classif.qda")
+    # lrn("classif.multinom")
+    # lrn("classif.LMT")
+
+learner$train(task, row_ids = split_index$train)
+
+prediction <- learner$predict(task, row_ids = split_index$test)
+prediction$score(msr("classif.acc"))
+```
+
+```{r}
+prediction %>% 
+    as.data.table() %>% 
+    melt(id.vars = "row_ids") %>% 
+    ggplot() +
+        geom_point(
+            mapping = aes(x = row_ids, y = value, color = variable)
+        )
+
+autoplot(prediction)
+```
