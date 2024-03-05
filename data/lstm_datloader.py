@@ -34,7 +34,9 @@ def mark_zscore(zscores: list):
     return list(map(tag_zs, zscores))
 
 
-def make_data(code: str) -> tuple[pd.DataFrame, pd.DataFrame]:
+def make_data(
+    code: str, split_date: int = 20220913
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     file_path = Path(__file__).parent / f"{code}.csv"
     fu_dat = pd.read_csv(file_path)
     features = fu_dat.drop(columns=["change1", "ts_code"])
@@ -52,13 +54,13 @@ def make_data(code: str) -> tuple[pd.DataFrame, pd.DataFrame]:
         axis=1,
     )
     train_data = (
-        data[data["trade_date"] < 20220913]
+        data[data["trade_date"] < split_date]
         .iloc[1:, :]
         .drop(columns=["trade_date"])
         .reset_index(drop=True)
     )
     test_data = (
-        data[data["trade_date"] >= 20220913]
+        data[data["trade_date"] >= split_date]
         .drop(columns=["trade_date"])
         .reset_index(drop=True)
     )

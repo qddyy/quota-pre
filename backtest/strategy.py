@@ -108,7 +108,7 @@ class strategy:
         self.odds = {"win": [], "loss": []}
         self.portfolio_values = []
         self.weight = torch.tensor([-0.2, -0.5, 0.0, 0.5, 0.2], dtype=torch.float32)
-        self.account = futureAccount(current_date="2022-09-13", base=10000000, pool={})
+        self.account = futureAccount(current_date="20220913", base=10000000, pool={})
 
     def excute_stratgy(self, signal_gerater: Callable, model: Callable | None = None):
         for i in range(len(self.orin_data)):
