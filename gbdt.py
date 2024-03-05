@@ -71,6 +71,7 @@ def train_gbdt(code: str, seq_len: int, split_date: int = 20220913):
     }
     bst = lgb.train(params, train_data, num_round)
     bst.save_model(f"{code}_gbdt_model.txt")
+    return bst
 
 
 def test_gbdt(code: str, seq_len: int, split_date: int = 20220913):
