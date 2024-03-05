@@ -130,7 +130,7 @@ class strategy:
         self.win_times = []
         self.odds = {"win": [], "loss": []}
         self.portfolio_values = []
-        self.weight = torch.tensor([-0.2, -0.5, 0.0, 0.5, 0.2], dtype=torch.float32)
+        self.weight = torch.tensor([-0.5, -0.2, 0.0, 0.2, 0.5], dtype=torch.float32)
         self.account = futureAccount(current_date="20220913", base=10000000, pool={})
 
     def excute_stratgy(
