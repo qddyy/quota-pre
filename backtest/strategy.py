@@ -4,6 +4,7 @@ import math
 from pathlib import Path
 from typing import Callable
 from datetime import datetime, timedelta
+from functools import partial
 
 
 import torch
@@ -16,7 +17,8 @@ import lightgbm as lgb
 from backtest.schema import futureAccount
 from data.lstm_datloader import make_data, make_seqs
 from model.vgg_lstm import VGG_LSTM
-from gbdt import split_data
+from gbdt import split_data, train_gbdt
+from train_model import mk_vgg_lstm_model
 
 
 class tradeSignal:
@@ -84,6 +86,20 @@ def generate_signal(data, model):
     return signals
 
 
+def vgg_update_model(code: str, seq_len: int, batch_size: int) -> Callable:
+    update_fuc = partial(mk_vgg_lstm_model, code, batch_size, seq_len)
+    return update_fuc
+
+
+def gbdt_update_model(code: str, seq_len: int) -> Callable:
+    model = partial(train_gbdt, code, seq_len)
+
+    def update_fuc(split_date: int):
+        return model(split_date).predict
+
+    return update_fuc
+
+
 class strategy:
     model: Callable
     weight: torch.Tensor
@@ -96,9 +112,16 @@ class strategy:
     account: futureAccount
     portfolio_values: list
 
-    def __init__(self, code: str, seq_len: int, test_data: pd.DataFrame) -> None:
+    def __init__(
+        self,
+        code: str,
+        seq_len: int,
+        test_data: pd.DataFrame,
+        model: Callable | None = None,
+    ) -> None:
         self.code = code
         self.pre_times = 0
+        self.model = model
         self.signals = None
         self.has_signal = False
         self.seq_len = seq_len
@@ -110,7 +133,9 @@ class strategy:
         self.weight = torch.tensor([-0.2, -0.5, 0.0, 0.5, 0.2], dtype=torch.float32)
         self.account = futureAccount(current_date="20220913", base=10000000, pool={})
 
-    def excute_stratgy(self, signal_gerater: Callable, model: Callable | None = None):
+    def excute_stratgy(
+        self, signal_gerater: Callable, update_fuc: Callable | None = None
+    ):
         for i in range(len(self.orin_data)):
             self.account.update_date(1)
             price = self.orin_data.loc[i, ["close"]].item()
@@ -121,8 +146,12 @@ class strategy:
             self.account.update_price({self.code: price})
             self.portfolio_values.append(self.account.portfolio_value)
             if (i + 1) >= self.seq_len and i <= len(self.orin_data) - self.seq_len:
-                self.signals = signal_gerater(self.test_data[self.pre_times], model)
+                self.signals = signal_gerater(
+                    self.test_data[self.pre_times], self.model
+                )
                 self.pre_times += 1
+                if self.pre_times % 30 == 0:
+                    self.update_model(update_fuc)
                 self.has_signal = True
 
     def daily_settle(self, current_price: float):
@@ -145,13 +174,18 @@ class strategy:
                     self.win_times.append(0)
                     self.odds["loss"].append(abs(intrest))
 
+    def update_model(self, update_fuc: Callable):
+        # split_date = int(self.account.current_date)
+        # self.model = update_fuc(split_date)
+        pass
+
 
 def lstm_sig_gener(data, model) -> torch.Tensor:
     return generate_signal(data.unsqueeze(0), model)
 
 
 def roll_date(date: str):
-    date_format = "%Y-%m-%d"
+    date_format = "%Y%m%d"
     old_date = datetime.strptime(date, date_format)
     new_date = (old_date + timedelta(days=-1)).strftime(date_format)
     return new_date
@@ -161,9 +195,10 @@ def vgg_lstm_strategy(code: str, seq_len: int):
     model_path = Path(__file__).parent.parent / "vgg_lstm_model.pth"
     model = VGG_LSTM(5, 20, 50, 100)
     model.load_state_dict(torch.load(model_path))
+    update_fuc = vgg_update_model(code, seq_len, 64)
     test_data = make_vgg_data(code, seq_len)
-    executer = strategy(code, seq_len, test_data)
-    executer.excute_stratgy(lstm_sig_gener, model)
+    executer = strategy(code, seq_len, test_data, model)
+    executer.excute_stratgy(lstm_sig_gener, update_fuc)
     portfolio_values = executer.portfolio_values
     win_rate = sum(executer.win_times) / len(executer.win_times)
     odds = sum(list(executer.odds["win"])) / sum(list(executer.odds["loss"]))
@@ -184,9 +219,10 @@ def random_gener(data, model) -> torch.Tensor:
 def gbdt_strategy(code: str, seq_len: int):
     model_path = Path(__file__).parent.parent / "model.txt"
     model = lgb.Booster(model_file=model_path).predict
+    update_fuc = gbdt_update_model(code, seq_len)
     test_data = make_gbdt_data(code, seq_len).iloc
-    executer = strategy(code, seq_len, test_data)
-    executer.excute_stratgy(gbdt_sig_gener, model)
+    executer = strategy(code, seq_len, test_data, model)
+    executer.excute_stratgy(gbdt_sig_gener, update_fuc)
     portfolio_values = executer.portfolio_values
     win_rate = sum(executer.win_times) / len(executer.win_times)
     odds = sum(list(executer.odds["win"])) / sum(list(executer.odds["loss"]))
