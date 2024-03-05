@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from model.vgg import vgg
 
-conv_arch = ((1, 64), (1, 128))
+conv_arch = ((2, 64), (2, 128))
 
 
 class VGG_LSTM(nn.Module):
@@ -31,6 +31,7 @@ class VGG_LSTM(nn.Module):
 
         # 全连接层
         self.fc = nn.Linear(self.lstm_hidden_dim, num_classes)
+        self.soft = nn.Softmax(dim=1)
 
     def forward(self, x):
         # 提取图像特征
@@ -51,7 +52,7 @@ class VGG_LSTM(nn.Module):
 
         # 全连接层的前向传播
         output = self.fc(lstm_out)
-        output = self.utlize(output)
+        output = self.soft(output)
 
         return output
 
