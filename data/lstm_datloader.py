@@ -75,15 +75,16 @@ def lstm_data(
     seq_len: int,
     datype: Literal["train", "test"],
     shuffule: bool = True,
+    split_data: int = 20220913,
 ) -> DataLoader:
     data_path = Path(__file__).parent / f"{code}_{datype}_data.csv"
     if os.path.exists(data_path):
         data = pd.read_csv(data_path)
     else:
         if datype == "train":
-            data, _ = make_data(code)
+            data, _ = make_data(code, split_data)
         else:
-            _, data = make_data(code)
+            _, data = make_data(code, split_data)
     ros = SMOTE()
     x = torch.tensor(data.iloc[:, :-1].to_numpy(), dtype=torch.float32)
     y = mark_zscore(data.iloc[:, -1].values)
@@ -104,12 +105,22 @@ def make_seqs(seq_len: int, data: torch.Tensor):
     return torch.stack([data[i : i + seq_len] for i in range(num_samp - seq_len)])
 
 
-def lstm_train_data(code: str, batch_size: int, seq_len: int):
-    return lstm_data(code, batch_size, seq_len, "train")
+def lstm_train_data(
+    code: str, batch_size: int, seq_len: int, split_data: int = 20220913
+):
+    return lstm_data(code, batch_size, seq_len, "train", split_data=split_data)
 
 
-def lstm_test_data(code: str, batch_size: int, seq_len: int, shuffle: bool = True):
-    return lstm_data(code, batch_size, seq_len, "test", shuffule=shuffle)
+def lstm_test_data(
+    code: str,
+    batch_size: int,
+    seq_len: int,
+    shuffle: bool = True,
+    split_data: int = 20220913,
+):
+    return lstm_data(
+        code, batch_size, seq_len, "test", shuffule=shuffle, split_data=split_data
+    )
 
 
 if __name__ == "__main__":
