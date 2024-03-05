@@ -89,12 +89,18 @@ def train_vgg_lstm(
                 )
             )
     torch.save(model.state_dict(), "vgg_lstm_model.pth")
+    return model
 
 
-if __name__ == "__main__":
-    data = lstm_train_data("IC.CFX", batch_size, seq_len)
+def mk_vgg_lstm_model(
+    code: str, batch_size: int, seq_len: int, split_data: int = 20220913
+):
+    data = lstm_train_data(code, batch_size, seq_len, split_data=split_data)
     model = VGG_LSTM(5, 20, seq_len, hidden_dim, 1)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     criterion = CustomLoss()
-    # criterion = torch.nn.MSELoss(reduce="mean")
-    train_vgg_lstm(model, data, optimizer, criterion, 700)
+    return train_vgg_lstm(model, data, optimizer, criterion, 700)
+
+
+if __name__ == "__main__":
+    model = mk_vgg_lstm_model("IC.CFX", batch_size, seq_len)
