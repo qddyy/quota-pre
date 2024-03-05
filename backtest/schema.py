@@ -18,7 +18,7 @@ class futureAccount:
 
     def __init__(
         self,
-        current_date: str = "2022-09-23",
+        current_date: str = "20220913",
         base: float = 10000000,
         pool: dict[str:dict] = {},
         fu_overtoday_fee: float = 0.000024,
@@ -34,7 +34,7 @@ class futureAccount:
         self.transactions = defaultdict(list)
 
     def update_date(self, num: int):
-        date_format = "%Y-%m-%d"
+        date_format = "%Y%m%d"
         old_date = datetime.strptime(self.current_date, date_format)
         new_date = (old_date + timedelta(days=num)).strftime(date_format)
         self.current_date = new_date

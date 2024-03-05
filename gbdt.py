@@ -1,4 +1,5 @@
 ﻿from typing import Literal
+from pathlib import Path
 import lightgbm as lgb
 import pandas as pd
 from sklearn.metrics import accuracy_score
@@ -38,10 +39,11 @@ def split_data(
     code: Literal["IC.CFX", "IF.CFX", "IH.CFX", "IM.CFX"],
     windows: int,
     resample: bool = True,
+    split_date: int = 20220913,
 ):
     # 重采样
     ros = RandomOverSampler(random_state=42)
-    train_data, test_data = make_data("IC.CFX")
+    train_data, test_data = make_data(code, split_date)
     x_train, y_train, x_test, y_test = flat_data(train_data, test_data, windows)
     y_train = (
         y_train.iloc[:, -1].apply(tag_zs).apply(trans_class_num).reset_index(drop=True)
@@ -55,8 +57,8 @@ def split_data(
     return x_train, y_train, x_test, y_test
 
 
-if __name__ == "__main__":
-    x_train, y_train, x_test, y_test = split_data("IC.CFX", windows)
+def train_gbdt(code: str, seq_len: int, split_date: int = 20220913):
+    x_train, y_train, *_ = split_data(code, seq_len, split_date)
 
     # 模型训练
     train_data = lgb.Dataset(x_train, label=y_train)
@@ -68,9 +70,14 @@ if __name__ == "__main__":
         "num_class": 5,
     }
     bst = lgb.train(params, train_data, num_round)
-    bst.save_model("model.txt")
+    bst.save_model(f"{code}_gbdt_model.txt")
 
+
+def test_gbdt(code: str, seq_len: int, split_date: int = 20220913):
+    *_, x_test, y_test = split_data(code, seq_len, split_date)
     # 模型效果评估
+    model_path = Path(__file__).parent / f"{code}_gbdt_model.txt"
+    bst = lgb.Booster(model_path)
     y_pred = bst.predict(x_test)
     y_pred = pd.Series(map(lambda x: x.argmax(), y_pred))
     accuracy = accuracy_score(y_test, y_pred)
@@ -78,3 +85,7 @@ if __name__ == "__main__":
     y_pred = y_pred
     print(sum(y_test == y_pred) / len(y_pred))
     print(accuracy)
+
+
+if __name__ == "__main__":
+    test_gbdt("IF.CFX", windows)
