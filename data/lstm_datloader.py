@@ -34,13 +34,9 @@ def mark_zscore(zscores: list):
     return list(map(tag_zs, zscores))
 
 
-def make_data(
-    code: str, split_date: int = 20220913
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    file_path = Path(__file__).parent / f"{code}.csv"
-    fu_dat = pd.read_csv(file_path)
-    features = fu_dat.drop(columns=["change1", "ts_code"])
-    pcg = list(fu_dat["close"].pct_change())
+def data_to_zscore(data: pd.DataFrame) -> pd.DataFrame:
+    features = data.drop(columns=["change1", "ts_code"])
+    pcg = list(data["close"].pct_change())
     returns = features.iloc[:, 1:8].astype(float).apply(np.log).diff()
     indicaters = features.iloc[:, 8:-1].astype(float)
     # returns = features.iloc[:, 1:7].pct_change()
@@ -53,9 +49,17 @@ def make_data(
         [features.iloc[:-1, :], pcg_df.iloc[1:, :].reset_index(drop=True)],
         axis=1,
     )
+    return data.iloc[1:, :]
+
+
+def make_data(
+    code: str, split_date: int = 20220913
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    file_path = Path(__file__).parent / f"{code}.csv"
+    fu_dat = pd.read_csv(file_path)
+    data = data_to_zscore(fu_dat)
     train_data = (
         data[data["trade_date"] < split_date]
-        .iloc[1:, :]
         .drop(columns=["trade_date"])
         .reset_index(drop=True)
     )
@@ -69,12 +73,35 @@ def make_data(
     return train_data, test_data
 
 
+def get_labled_data(
+    data: pd.DataFrame,
+    seq_len: int,
+    batch_size: int,
+    shuffle: bool = True,
+    resample: bool = True,
+) -> DataLoader:
+    ros = SMOTE()
+    x = torch.tensor(data.iloc[:, :-1].to_numpy(), dtype=torch.float32)
+    y = mark_zscore(data.iloc[:, -1].values)
+    y = torch.tensor(y, dtype=torch.float32)
+    x = make_seqs(seq_len, x)
+    x = x.view(x.size(0), -1).numpy()
+    y = make_seqs(seq_len, y)[:, -1, :].numpy()
+    if resample:
+        x, y = ros.fit_resample(x, y)
+    x = torch.tensor(x, dtype=torch.float32).view(-1, seq_len, 20)
+    y = torch.tensor(y, dtype=torch.float32)
+    dataset = TensorDataset(x, y)
+    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)
+    return data_loader
+
+
 def lstm_data(
     code: str,
     batch_size: int,
     seq_len: int,
     datype: Literal["train", "test"],
-    shuffule: bool = True,
+    shuffle: bool = True,
     split_data: int = 20220913,
 ) -> DataLoader:
     data_path = Path(__file__).parent / f"{code}_{datype}_data.csv"
@@ -85,24 +112,13 @@ def lstm_data(
             data, _ = make_data(code, split_data)
         else:
             _, data = make_data(code, split_data)
-    ros = SMOTE()
-    x = torch.tensor(data.iloc[:, :-1].to_numpy(), dtype=torch.float32)
-    y = mark_zscore(data.iloc[:, -1].values)
-    y = torch.tensor(y, dtype=torch.float32)
-    x = make_seqs(seq_len, x)
-    x = x.view(x.size(0), -1).numpy()
-    y = make_seqs(seq_len, y)[:, -1, :].numpy()
-    x_resampled, y_resampled = ros.fit_resample(x, y)
-    x = torch.tensor(x_resampled, dtype=torch.float32).view(-1, seq_len, 20)
-    y = torch.tensor(y_resampled, dtype=torch.float32)
-    dataset = TensorDataset(x, y)
-    data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffule)
+    data_loader = get_labled_data(data, seq_len, batch_size, shuffle)
     return data_loader
 
 
 def make_seqs(seq_len: int, data: torch.Tensor):
     num_samp = data.size(0)
-    return torch.stack([data[i : i + seq_len] for i in range(num_samp - seq_len)])
+    return torch.stack([data[i : i + seq_len] for i in range(num_samp - seq_len + 1)])
 
 
 def lstm_train_data(

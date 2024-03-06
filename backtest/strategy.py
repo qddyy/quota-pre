@@ -15,10 +15,10 @@ import matplotlib.pyplot as plt
 import lightgbm as lgb
 
 from backtest.schema import futureAccount
-from data.lstm_datloader import make_data, make_seqs
+from data.lstm_datloader import data_to_zscore, get_labled_data, make_data, make_seqs
 from model.vgg_lstm import VGG_LSTM
 from gbdt import split_data, train_gbdt
-from train_model import mk_vgg_lstm_model
+from train_model import mk_vgg_lstm_model, update_vgg_lstm
 
 
 class tradeSignal:
@@ -41,11 +41,11 @@ def read_data(code: str) -> pd.DataFrame:
 def read_orin_data(code: str) -> pd.DataFrame:
     file_path = Path(__file__).parent.parent / f"data/{code}.csv"
     fu_dat = pd.read_csv(file_path)
-    features = fu_dat.drop(columns=["change1", "ts_code"])
-    data = features.iloc[:-1, :]
+    # features = fu_dat.drop(columns=["change1", "ts_code"])
+    data = fu_dat.iloc[:-1, :]
     test_data = (
         data[data["trade_date"] >= 20220913]
-        .drop(columns=["trade_date"])
+        # .drop(columns=["trade_date"])
         .reset_index(drop=True)
     )
     return test_data
@@ -100,6 +100,12 @@ def gbdt_update_model(code: str, seq_len: int) -> Callable:
     return update_fuc
 
 
+def lstm_updata_fuc(orin_data: pd.DataFrame, seq_len: int, batch_size: int):
+    data = data_to_zscore(orin_data).drop(columns=["trade_date"]).reset_index(drop=True)
+    dataloader = get_labled_data(data, seq_len, batch_size, resample=False)
+    return dataloader
+
+
 class strategy:
     model: Callable
     weight: torch.Tensor
@@ -118,12 +124,14 @@ class strategy:
         seq_len: int,
         test_data: pd.DataFrame,
         model: Callable | None = None,
+        update: bool = False,
     ) -> None:
         self.code = code
         self.pre_times = 0
         self.model = model
         self.signals = None
         self.has_signal = False
+        self.update = update
         self.seq_len = seq_len
         self.test_data = test_data
         self.orin_data = read_orin_data(code)
@@ -134,7 +142,10 @@ class strategy:
         self.account = futureAccount(current_date="20220913", base=10000000, pool={})
 
     def excute_stratgy(
-        self, signal_gerater: Callable, update_fuc: Callable | None = None
+        self,
+        signal_gerater: Callable,
+        update_fuc: Callable | None = None,
+        data_fuc: Callable | None = None,
     ):
         for i in range(len(self.orin_data)):
             self.account.update_date(1)
@@ -150,8 +161,13 @@ class strategy:
                     self.test_data[self.pre_times], self.model
                 )
                 self.pre_times += 1
-                if self.pre_times % 30 == 0:
-                    self.update_model(update_fuc)
+                if self.pre_times % (2 * self.seq_len) == 0 and self.update:
+                    data = data_fuc(
+                        self.orin_data[i - 2 * self.seq_len - 2 : i].reset_index(
+                            drop=True
+                        )
+                    )
+                    self.update_model(update_fuc, data)
                 self.has_signal = True
 
     def daily_settle(self, current_price: float):
@@ -174,9 +190,8 @@ class strategy:
                     self.win_times.append(0)
                     self.odds["loss"].append(abs(intrest))
 
-    def update_model(self, update_fuc: Callable):
-        # split_date = int(self.account.current_date)
-        # self.model = update_fuc(split_date)
+    def update_model(self, update_fuc: Callable, data):
+        update_fuc(self.model, data)
         pass
 
 
@@ -195,10 +210,11 @@ def vgg_lstm_strategy(code: str, seq_len: int):
     model_path = Path(__file__).parent.parent / "vgg_lstm_model.pth"
     model = VGG_LSTM(5, 20, 50, 100)
     model.load_state_dict(torch.load(model_path))
-    update_fuc = vgg_update_model(code, seq_len, 64)
+    update_fuc = update_vgg_lstm
+    data_fuc = partial(lstm_updata_fuc, seq_len=seq_len, batch_size=64)
     test_data = make_vgg_data(code, seq_len)
-    executer = strategy(code, seq_len, test_data, model)
-    executer.excute_stratgy(lstm_sig_gener, update_fuc)
+    executer = strategy(code, seq_len, test_data, model, update=True)
+    executer.excute_stratgy(lstm_sig_gener, update_fuc, data_fuc)
     portfolio_values = executer.portfolio_values
     win_rate = sum(executer.win_times) / len(executer.win_times)
     odds = sum(list(executer.odds["win"])) / sum(list(executer.odds["loss"]))

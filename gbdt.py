@@ -14,25 +14,32 @@ def trans_class_num(cls: list):
     return cls.index(max(cls))
 
 
+def flatten(data: pd.DataFrame, windows: int):
+    feats = []
+    targets = []
+    for i in range(len(data) - windows + 1):
+        feats.append(data.iloc[i : i + windows, :-1].values.flatten())
+        targets.append(data.iloc[i + windows - 1, -1])
+    return pd.DataFrame(feats), pd.DataFrame(targets)
+
+
 def flat_data(
     train_data: pd.DataFrame, test_data: pd.DataFrame, windows: int
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    train_feats = []
-    train_tages = []
-    test_feats = []
-    test_tages = []
-    for i in range(len(train_data) - windows + 1):
-        train_feats.append(train_data.iloc[i : i + windows, :-1].values.flatten())
-        train_tages.append(train_data.iloc[i + windows - 1, -1])
-    for i in range(len(test_data) - windows + 1):
-        test_feats.append(test_data.iloc[i : i + windows, :-1].values.flatten())
-        test_tages.append(test_data.iloc[i + windows - 1, -1])
-    return (
-        pd.DataFrame(train_feats),
-        pd.DataFrame(train_tages),
-        pd.DataFrame(test_feats),
-        pd.DataFrame(test_tages),
+    train_feats, train_tages = flatten(train_data, windows)
+    test_feats, test_tages = flatten(test_data, windows)
+    return train_feats, train_tages, test_feats, test_tages
+
+
+def gbdt_labled_data(data: pd.DataFrame, windows: int, resample: bool = True):
+    ros = RandomOverSampler(random_state=42)
+    feats, targets = flatten(data, windows)
+    targets = (
+        targets.iloc[:, -1].apply(tag_zs).apply(trans_class_num).reset_index(drop=True)
     )
+    if resample:
+        feats, targets = ros.fit_resample(feats, targets)
+    return feats, targets
 
 
 def split_data(
@@ -42,18 +49,9 @@ def split_data(
     split_date: int = 20220913,
 ):
     # 重采样
-    ros = RandomOverSampler(random_state=42)
     train_data, test_data = make_data(code, split_date)
-    x_train, y_train, x_test, y_test = flat_data(train_data, test_data, windows)
-    y_train = (
-        y_train.iloc[:, -1].apply(tag_zs).apply(trans_class_num).reset_index(drop=True)
-    )
-    y_test = (
-        y_test.iloc[:, -1].apply(tag_zs).apply(trans_class_num).reset_index(drop=True)
-    )
-    if resample:
-        x_train, y_train = ros.fit_resample(x_train, y_train)
-        x_test, y_test = ros.fit_resample(x_test, y_test)
+    x_train, y_train = gbdt_labled_data(train_data, windows, resample)
+    x_test, y_test = gbdt_labled_data(test_data, windows, resample)
     return x_train, y_train, x_test, y_test
 
 
