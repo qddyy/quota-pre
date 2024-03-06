@@ -135,7 +135,7 @@ def lstm_test_data(
     split_data: int = 20220913,
 ):
     return lstm_data(
-        code, batch_size, seq_len, "test", shuffule=shuffle, split_data=split_data
+        code, batch_size, seq_len, "test", shuffle=shuffle, split_data=split_data
     )
 
 

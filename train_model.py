@@ -32,9 +32,9 @@ class CustomLoss(torch.nn.Module):
         for i in range(target.size(0)):
             arg = target[i].argmax()
             delta = self.distance[arg]
-            dis = abs(self.distance - delta)
-            err_multi[i] = dis + 1
-        loss = torch.pow((output - target) * err_multi, 2).sum() / target.size(0)
+            dis = -abs(self.distance - delta)
+            err_multi[i] = dis + target[i]
+        loss = torch.exp(-output * err_multi).sum() / target.size(0)
         return loss
 
 
