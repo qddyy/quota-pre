@@ -39,10 +39,12 @@ class CustomLoss(torch.nn.Module):
         assert (
             output.size() == target.size()
         ), "the size of output should mathch the target"
-        err_multi = torch.zeros_like(output, dtype=float)
+        err_multi = torch.zeros_like(output, dtype=torch.float32)
+        true_target = torch.zeros_like(target, dtype=torch.float32)
         for i in range(target.size(0)):
             err_multi[i] = torch.mv(self.weight, output[i])
-        loss = self.cosin(err_multi, target).sum() / target.size(0)
+            true_target[i] = torch.mv(self.weight, target[i])
+        loss = self.cosin(err_multi, true_target).sum() / target.size(0)
         return loss
 
     def cosin(self, output, targets):
