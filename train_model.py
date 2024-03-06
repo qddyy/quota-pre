@@ -1,3 +1,4 @@
+from math import sqrt
 from pathlib import Path
 import torch
 from torch.utils.data import DataLoader
@@ -22,20 +23,34 @@ class CustomLoss(torch.nn.Module):
     def __init__(self):
         super(CustomLoss, self).__init__()
         self.distance = torch.tensor([-0.5, -0.34, 0, 0.34, 0.5], dtype=float)
+        self.weight = torch.tensor(
+            [
+                [-0.6, 0, 0, -0.8, 0],
+                [0, -sqrt(2) / 2, 0.5, -0.5, 0],
+                [0, 0, 1, 0, 0],
+                [0, sqrt(2) / 2, 0.5, 0.5, 0],
+                [0, 0, 0, 0.8, 0.6],
+            ],
+            dtype=torch.float32,
+        )
 
     def forward(self, output, target):
         # 在这里实现自定义的损失计算逻辑
         assert (
             output.size() == target.size()
         ), "the size of output should mathch the target"
-        err_multi = torch.zeros_like(target, dtype=float)
+        err_multi = torch.zeros_like(output, dtype=float)
         for i in range(target.size(0)):
-            arg = target[i].argmax()
-            delta = self.distance[arg]
-            dis = -abs(self.distance - delta)
-            err_multi[i] = dis + target[i]
-        loss = torch.exp(-output * err_multi).sum() / target.size(0)
+            err_multi[i] = torch.mv(self.weight, output[i])
+        loss = self.cosin(err_multi, target).sum() / target.size(0)
         return loss
+
+    def cosin(self, output, targets):
+        cosin = (output * targets).sum(dim=1) / (
+            torch.norm(output, dim=1, keepdim=True)
+            * torch.norm(targets, dim=1, keepdim=True)
+        )
+        return 1 - cosin
 
 
 def train_vgg_lstm(
@@ -116,7 +131,7 @@ def mk_vgg_lstm_model(
 ):
     data = lstm_train_data(code, batch_size, seq_len, split_data=split_data)
     model = VGG_LSTM(5, 20, seq_len, hidden_dim, 1)
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    optimizer = torch.optim.Adam(model.parameters(), lr=5e-3)
     criterion = CustomLoss()
     return train_vgg_lstm(model, data, optimizer, criterion, 700)
 
