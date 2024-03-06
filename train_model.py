@@ -1,17 +1,13 @@
-import os
 from pathlib import Path
-import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
 import torch
 from torch.utils.data import DataLoader
-import torch.nn.functional as F
 from torch.optim.optimizer import Optimizer
 
 
 from data.lstm_datloader import lstm_train_data
 from model.vgg_lstm import VGG_LSTM
 
+path = Path(__file__).parent
 
 batch_size = 64
 input_dim = 20
@@ -89,6 +85,29 @@ def train_vgg_lstm(
                 )
             )
     torch.save(model.state_dict(), "vgg_lstm_model.pth")
+    return model
+
+
+def update_vgg_lstm(
+    model: torch.nn.Module,
+    data: DataLoader,
+    epochs=700,
+):
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    criterion = CustomLoss()
+    for t in range(epochs):
+        # Process each mini-batch in turn:
+        for x, y_actual in data:
+            y_pred = model(x)
+            # Compute and print loss
+            loss = criterion(
+                y_pred.to(dtype=torch.float), y_actual.to(dtype=torch.float)
+            )
+            # Zero gradients, perform a backward pass, and update the weights.
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+    # torch.save(model.state_dict(), path / "vgg_lstm_model.pth")
     return model
 
 
