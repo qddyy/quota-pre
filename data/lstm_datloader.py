@@ -50,7 +50,8 @@ def data_to_zscore(data: pd.DataFrame) -> pd.DataFrame:
     for i in range(1, 9):
         features.iloc[:, i] = cal_zscore(returns.iloc[:, i - 1].values)
     for i in range(9, dims - 1):
-        features.iloc[:, i] = cal_zscore(indicaters.iloc[:, i - 9].values)
+        # features.iloc[:, i] = cal_zscore(indicaters.iloc[:, i - 9].values)
+        pass
     pcg_df = pd.DataFrame({"pcg_zscore": cal_zscore(pcg)})
     data = pd.concat(
         [features.iloc[:-1, :], pcg_df.iloc[1:, :].reset_index(drop=True)],

@@ -91,4 +91,5 @@ def test_gbdt(code: str, seq_len: int, split_date: int = 20220913):
 
 
 if __name__ == "__main__":
+    train_gbdt("IC.CFX", windows)
     test_gbdt("IC.CFX", windows)

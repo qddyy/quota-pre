@@ -16,7 +16,22 @@ class VGG_LSTM(nn.Module):
         # 加载预训练的VGG16模型
         self.input_dim = input_dim
         self.seq_len = seq_len
-        self.vgg = vgg(conv_arch, input_dim, seq_len)
+        self.cnn = nn.Sequential(
+            nn.Conv2d(
+                in_channels=1,
+                out_channels=16,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+            ),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(
+                in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=1
+            ),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+        )
 
         # LSTM参数
         self.lstm_hidden_dim = lstm_hidden_dim
@@ -24,7 +39,7 @@ class VGG_LSTM(nn.Module):
 
         # LSTM层
         self.lstm = nn.LSTM(
-            input_size=lstm_input_dim,
+            input_size=32,
             hidden_size=self.lstm_hidden_dim,
             num_layers=self.lstm_num_layers,
             batch_first=True,
@@ -38,11 +53,11 @@ class VGG_LSTM(nn.Module):
         # 提取图像特征
         with torch.no_grad():
             x = torch.unsqueeze(x, 1)
-            features = self.vgg(x)
+            features = self.cnn(x)
 
         # 将特征转换为LSTM需要的格式
         features = features.view(
-            features.size(0), -1, lstm_input_dim
+            features.size(0), -1, 32
         )  # (batch_size, sequence_length, feature_size)
 
         # LSTM层的前向传播

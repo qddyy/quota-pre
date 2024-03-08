@@ -102,6 +102,7 @@ def train_vgg_lstm(
                     sum(accs) / len(accs),
                 )
             )
+            torch.save(model.state_dict(), "vgg_lstm_model.pth")
     torch.save(model.state_dict(), "vgg_lstm_model.pth")
     return model
 
@@ -134,9 +135,9 @@ def mk_vgg_lstm_model(
 ):
     data = lstm_train_data(code, batch_size, seq_len, split_data=split_data)
     model = VGG_LSTM(class_num, input_dim, seq_len, hidden_dim, 1)
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
+    optimizer = torch.optim.Adam(model.parameters(), lr=5e-3)
     criterion = CustomLoss()
-    return train_vgg_lstm(model, data, optimizer, criterion, 700)
+    return train_vgg_lstm(model, data, optimizer, criterion, 370)
 
 
 if __name__ == "__main__":
