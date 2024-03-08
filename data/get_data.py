@@ -29,14 +29,16 @@ indics = [
     "DX",
     "MINUS_DI",
     "PLUS_DI",
+    "MIDPOINT",
+    "TRIMA",
 ]
 
 
 def get_fu_data(code: str) -> pd.DataFrame:
     start_date = fut_info[code][-2]
     end_date = fut_info[code][-1]
-    etf_fu = pro.fut_daily(ts_code=code, start_date=start_date, end_date=end_date)
-    etf_fu = etf_fu[
+    fu_dat = pro.fut_daily(ts_code=code, start_date=start_date, end_date=end_date)
+    fu_dat = fu_dat[
         [
             "ts_code",
             "trade_date",
@@ -52,27 +54,59 @@ def get_fu_data(code: str) -> pd.DataFrame:
             "change1",
         ]
     ]
-    return etf_fu
+    return fu_dat
 
 
-def get_fu_single_indi(code: str, indis: list[str]) -> pd.DataFrame:
-    etf_fu = get_fu_data(code)
+def get_fu_single_indi(
+    code: str, indis: list[str], add_ind: bool = False, add_etf: bool = False
+) -> pd.DataFrame:
+    fu_dat = get_fu_data(code)
+    if add_ind:
+        fu_dat = merge_ind(fu_dat, code)
+    if add_etf:
+        fu_dat = merge_etf(fu_dat, code)
     for ind in indis:
         ind = ind.upper()
         ind_op = getattr(ta, ind)
         if ind in ["MACD", "MACDFIX", "MACDEXT"]:
-            ind_dat, *_ = ind_op(etf_fu["close"].values[::-1])
+            ind_dat, *_ = ind_op(fu_dat["close"].values[::-1])
+            if add_ind:
+                ind_index, *_ = ind_op(fu_dat["ind_close"].values[::-1])
+            if add_etf:
+                ind_etf, *_ = ind_op(fu_dat["etf_close"].values[::-1])
         elif ind in ["ADX", "ADXR", "CCI", "DX", "MINUS_DI", "PLUS_DI"]:
             ind_dat = ind_op(
-                high=etf_fu["high"].values[::-1],
-                low=etf_fu["low"].values[::-1],
-                close=etf_fu["close"].values[::-1],
+                high=fu_dat["high"].values[::-1],
+                low=fu_dat["low"].values[::-1],
+                close=fu_dat["close"].values[::-1],
             )
+            if add_ind:
+                ind_index = ind_op(
+                    high=fu_dat["ind_high"].values[::-1],
+                    low=fu_dat["ind_low"].values[::-1],
+                    close=fu_dat["ind_close"].values[::-1],
+                )
+            if add_etf:
+                ind_etf = ind_op(
+                    high=fu_dat["etf_high"].values[::-1],
+                    low=fu_dat["etf_low"].values[::-1],
+                    close=fu_dat["etf_close"].values[::-1],
+                )
         else:
-            ind_dat = ind_op(etf_fu["close"].values[::-1])
+            ind_dat = ind_op(fu_dat["close"].values[::-1])
+            if add_ind:
+                ind_index = ind_op(fu_dat["ind_close"].values[::-1])
+            if add_etf:
+                ind_etf = ind_op(fu_dat["etf_close"].values[::-1])
         ind_df = pd.DataFrame({ind: ind_dat[::-1]})
-        etf_fu = pd.concat([etf_fu, ind_df], axis=1)
-    return etf_fu
+        if add_ind:
+            index_df = pd.DataFrame({f"{ind}_index": ind_index[::-1]})
+            ind_df = pd.concat([ind_df, index_df], axis=1)
+        if add_etf:
+            etf_df = pd.DataFrame({f"{ind}_etf": ind_etf[::-1]})
+            ind_df = pd.concat([ind_df, etf_df], axis=1)
+        fu_dat = pd.concat([fu_dat, ind_df], axis=1)
+    return fu_dat
 
 
 def save_fut_data(codes: list[str], indis: list[str] | None = None) -> None:
@@ -113,10 +147,8 @@ def merge_etf(data: pd.DataFrame, fu_code: str):
 
 def get_fu_etf(fu_code: str) -> pd.DataFrame:
     code = fut_info[fu_code][1]
-    print(code)
     start_date = fut_info[fu_code][-2]
     end_date = fut_info[fu_code][-1]
-    print(end_date)
     etf_dat = pro.fund_daily(
         ts_code=code, start_date=start_date, end_date=end_date
     ).drop(columns=["amount", "ts_code"])
@@ -127,4 +159,6 @@ def get_fu_etf(fu_code: str) -> pd.DataFrame:
 if __name__ == "__main__":
     etf = get_fu_etf(fut_codes[3])
     fu = get_fu_data(code=fut_codes[3])
-    print(etf)
+    merge_in = merge_ind(fu, fut_codes[3])
+    add_inds = get_fu_single_indi(fut_codes[3], indics, True, True)
+    print(add_inds)
