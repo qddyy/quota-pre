@@ -4,12 +4,21 @@ from pathlib import Path
 from data.lstm_datloader import lstm_test_data
 from model.vgg_lstm import VGG_LSTM
 from train_model import CustomLoss
+from utils import read_env
+
+env_path = Path(__file__).parent / "env_vars.txt"
+os.environ.update(read_env(env_path))
+seq_len = int(os.environ["SEQ_LEN"])
+class_num = int(os.environ["CLASS_NUM"])
+input_dim = int(os.environ["INPUT_DIM"])
+batch_size = int(os.environ["BATCH_SIZE"])
+hidden_dim = int(os.environ["HIDDEN_DIM"])
 
 model_path = Path(__file__).parent / "vgg_lstm_model.pth"
-test_data = lstm_test_data("IC.CFX", 64, 50)
+test_data = lstm_test_data("IC.CFX", batch_size, seq_len)
 # criterion = torch.nn.MSELoss(reduction="sum")
 criterion = CustomLoss()
-model = VGG_LSTM(5, 20, 50, 100)
+model = VGG_LSTM(class_num, input_dim, seq_len, hidden_dim)
 model.load_state_dict(torch.load(model_path))
 model.eval()
 test_loss = 0

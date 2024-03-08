@@ -1,13 +1,17 @@
-﻿from typing import Literal
+﻿import os
+from typing import Literal
 from pathlib import Path
 import lightgbm as lgb
 import pandas as pd
 from sklearn.metrics import accuracy_score
 from imblearn.over_sampling import RandomOverSampler
 from data.lstm_datloader import make_data, tag_zs
+from utils import read_env
 
 num_round = 10
-windows = 50
+env_path = Path(__file__).parent / "env_vars.txt"
+os.environ.update(read_env(env_path))
+windows = int(os.environ["SEQ_LEN"])
 
 
 def trans_class_num(cls: list):
