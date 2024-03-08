@@ -191,7 +191,7 @@ class strategy:
                     self.odds["loss"].append(abs(intrest))
 
     def update_model(self, update_fuc: Callable, data):
-        update_fuc(self.model, data)
+        # update_fuc(self.model, data)
         pass
 
 

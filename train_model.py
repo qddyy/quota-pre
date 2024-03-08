@@ -52,7 +52,7 @@ class CustomLoss(torch.nn.Module):
             torch.norm(output, dim=1, keepdim=True)
             * torch.norm(targets, dim=1, keepdim=True)
         )
-        return 1 - cosin
+        return torch.exp(-cosin)
 
 
 def train_vgg_lstm(
@@ -133,7 +133,7 @@ def mk_vgg_lstm_model(
 ):
     data = lstm_train_data(code, batch_size, seq_len, split_data=split_data)
     model = VGG_LSTM(5, 20, seq_len, hidden_dim, 1)
-    optimizer = torch.optim.Adam(model.parameters(), lr=5e-3)
+    optimizer = torch.optim.Adam(model.parameters(), lr=5e-4)
     criterion = CustomLoss()
     return train_vgg_lstm(model, data, optimizer, criterion, 700)
 
