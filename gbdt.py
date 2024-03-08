@@ -76,7 +76,7 @@ def test_gbdt(code: str, seq_len: int, split_date: int = 20220913):
     *_, x_test, y_test = split_data(code, seq_len, split_date)
     # 模型效果评估
     model_path = Path(__file__).parent / f"{code}_gbdt_model.txt"
-    bst = lgb.Booster(model_path)
+    bst = lgb.Booster(model_file=model_path)
     y_pred = bst.predict(x_test)
     y_pred = pd.Series(map(lambda x: x.argmax(), y_pred))
     accuracy = accuracy_score(y_test, y_pred)
@@ -87,4 +87,4 @@ def test_gbdt(code: str, seq_len: int, split_date: int = 20220913):
 
 
 if __name__ == "__main__":
-    test_gbdt("IF.CFX", windows)
+    test_gbdt("IC.CFX", windows)
