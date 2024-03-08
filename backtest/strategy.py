@@ -75,9 +75,9 @@ def execut_signal(
     signals: torch.Tensor,
     price: float,
 ):
-    # volumes_rate = (unilize(signals) * weight).sum().item()
-    arg = signals.argmax().item()
-    volumes_rate = weight[arg].item()
+    volumes_rate = (unilize(signals) * weight).sum().item()
+    # arg = signals.argmax().item()
+    # volumes_rate = weight[arg].item()
     account.order_to(code, volumes_rate, price)
 
 
@@ -233,7 +233,7 @@ def random_gener(data, model) -> torch.Tensor:
 
 
 def gbdt_strategy(code: str, seq_len: int):
-    model_path = Path(__file__).parent.parent / "model.txt"
+    model_path = Path(__file__).parent.parent / f"{code}_gbdt_model.txt"
     model = lgb.Booster(model_file=model_path).predict
     update_fuc = gbdt_update_model(code, seq_len)
     test_data = make_gbdt_data(code, seq_len).iloc
