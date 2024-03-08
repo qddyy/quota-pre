@@ -9,8 +9,8 @@ from data.lstm_datloader import lstm_train_data
 from model.vgg_lstm import VGG_LSTM
 from utils import read_env
 
-
-env_path = Path(__file__).parent / "env_vars.txt"
+path = Path(__file__).parent
+env_path = path / "env_vars.txt"
 os.environ.update(read_env(env_path))
 batch_size = int(os.environ["BATCH_SIZE"])
 input_dim = int(os.environ["INPUT_DIM"])
@@ -108,9 +108,7 @@ def train_vgg_lstm(
 
 
 def update_vgg_lstm(
-    model: torch.nn.Module,
-    data: DataLoader,
-    epochs=700,
+    model: torch.nn.Module, data: DataLoader, epochs=700, if_save: bool = False
 ):
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     criterion = CustomLoss()
@@ -126,7 +124,10 @@ def update_vgg_lstm(
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-    # torch.save(model.state_dict(), path / "vgg_lstm_model.pth")
+            if if_save:
+                torch.save(model.state_dict(), path / "vgg_lstm_model.pth")
+    if if_save:
+        torch.save(model.state_dict(), path / "vgg_lstm_model.pth")
     return model
 
 
