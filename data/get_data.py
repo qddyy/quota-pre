@@ -34,7 +34,9 @@ indics = [
 ]
 
 
-def get_fu_data(code: str) -> pd.DataFrame:
+def get_fu_data(
+    code: str, add_ind: bool = False, add_etf: bool = False
+) -> pd.DataFrame:
     start_date = fut_info[code][-2]
     end_date = fut_info[code][-1]
     fu_dat = pro.fut_daily(ts_code=code, start_date=start_date, end_date=end_date)
@@ -54,17 +56,17 @@ def get_fu_data(code: str) -> pd.DataFrame:
             "change1",
         ]
     ]
+    if add_ind:
+        fu_dat = merge_ind(fu_dat, code)
+    if add_etf:
+        fu_dat = merge_etf(fu_dat, code)
     return fu_dat
 
 
 def get_fu_single_indi(
     code: str, indis: list[str], add_ind: bool = False, add_etf: bool = False
 ) -> pd.DataFrame:
-    fu_dat = get_fu_data(code)
-    if add_ind:
-        fu_dat = merge_ind(fu_dat, code)
-    if add_etf:
-        fu_dat = merge_etf(fu_dat, code)
+    fu_dat = get_fu_data(code, add_ind, add_etf)
     for ind in indis:
         ind = ind.upper()
         ind_op = getattr(ta, ind)
@@ -109,16 +111,21 @@ def get_fu_single_indi(
     return fu_dat
 
 
-def save_fut_data(codes: list[str], indis: list[str] | None = None) -> None:
+def save_fut_data(
+    codes: list[str],
+    indis: list[str] | None = None,
+    add_ind: bool = False,
+    add_etf: bool = False,
+) -> None:
     if indis is None:
         for co in codes:
             data_name = f"./data/{co}.csv"
-            fu_dat = get_fu_data(co)
+            fu_dat = get_fu_data(co, add_ind, add_etf)
             fu_dat.to_csv(data_name, index=False)
     else:
         for co in codes:
             data_name = f"./data/{co}.csv"
-            fu_dat = get_fu_single_indi(co, indis).dropna()
+            fu_dat = get_fu_single_indi(co, indis, add_ind, add_etf).dropna()
             fu_dat[::-1].to_csv(data_name, index=False)
 
 
@@ -161,4 +168,4 @@ if __name__ == "__main__":
     fu = get_fu_data(code=fut_codes[3])
     merge_in = merge_ind(fu, fut_codes[3])
     add_inds = get_fu_single_indi(fut_codes[3], indics, True, True)
-    print(add_inds)
+    print(add_inds.columns)
