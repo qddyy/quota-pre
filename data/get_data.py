@@ -1,3 +1,5 @@
+from datetime import date
+
 import tushare as ts
 import pandas as pd
 import talib as ta
@@ -5,7 +7,15 @@ import talib as ta
 
 pro = ts.pro_api()
 
+today = int(date.today().strftime("%Y%m%d"))
 fut_codes = ["IH.CFX", "IF.CFX", "IC.CFX", "IM.CFX"]
+index_codes = ["000016.SH", "000300.SH", "000905.SH", "000852.SH"]
+fut_info = {
+    "IH.CFX": ["000016.SH", 20160224, today],
+    "IF.CFX": ["000300.SH", 20160224, today],
+    "IC.CFX": ["000905.SH", 20160224, today],
+    "IM.CFX": ["000852.SH", 20221130, today],
+}
 indics = [
     "ma",
     "ema",
@@ -23,7 +33,9 @@ indics = [
 
 
 def get_fu_data(code: str) -> pd.DataFrame:
-    etf_fu = pro.fut_daily(ts_code=code, start_date="20100101", end_date="20231231")
+    start_date = fut_info[code][1]
+    end_date = fut_info[code][2]
+    etf_fu = pro.fut_daily(ts_code=code, start_date=start_date, end_date=end_date)
     etf_fu = etf_fu[
         [
             "ts_code",
@@ -36,6 +48,7 @@ def get_fu_data(code: str) -> pd.DataFrame:
             "close",
             "settle",
             "vol",
+            "oi",
             "change1",
         ]
     ]
@@ -75,5 +88,24 @@ def save_fut_data(codes: list[str], indis: list[str] | None = None) -> None:
             fu_dat[::-1].to_csv(data_name, index=False)
 
 
+def get_fu_index(fu_code: str) -> pd.DataFrame:
+    code = fut_info[fu_code][0]
+    start_date = fut_info[fu_code][1]
+    end_date = fut_info[fu_code][2]
+    ind_dat = pro.index_daily(
+        ts_code=code, start_date=start_date, end_date=end_date
+    ).drop(columns=["amount", "ts_code"])
+    ind_dat.columns = ["ind_" + v if v != "trade_date" else v for v in ind_dat.columns]
+    return ind_dat
+
+
+def merge_ind(data: pd.DataFrame, fu_code: str) -> pd.DataFrame:
+    ind = get_fu_index(fu_code)
+    merge_dat = pd.merge(data, ind, on="trade_date")
+    return merge_dat
+
+
 if __name__ == "__main__":
-    save_fut_data(codes=fut_codes, indis=indics)
+    ind = get_fu_index(fut_codes[3])
+    fu = get_fu_data(code=fut_codes[3])
+    print(pd.merge(fu, ind, on="trade_date"))
