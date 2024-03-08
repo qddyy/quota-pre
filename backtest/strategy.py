@@ -20,6 +20,11 @@ from model.vgg_lstm import VGG_LSTM
 from gbdt import split_data, train_gbdt
 from train_model import mk_vgg_lstm_model, update_vgg_lstm
 
+num_class = 5
+input_dim = 67
+seq_len = 50
+hidden_dim = 100
+
 
 class tradeSignal:
     HARD_BUY: float = 0.5
@@ -208,7 +213,7 @@ def roll_date(date: str):
 
 def vgg_lstm_strategy(code: str, seq_len: int):
     model_path = Path(__file__).parent.parent / "vgg_lstm_model.pth"
-    model = VGG_LSTM(5, 20, 50, 100)
+    model = VGG_LSTM(num_class, input_dim, seq_len, hidden_dim)
     model.load_state_dict(torch.load(model_path))
     update_fuc = update_vgg_lstm
     data_fuc = partial(lstm_updata_fuc, seq_len=seq_len, batch_size=64)

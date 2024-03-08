@@ -1,22 +1,23 @@
+import os
 from math import sqrt
 from pathlib import Path
 import torch
 from torch.utils.data import DataLoader
 from torch.optim.optimizer import Optimizer
 
-
 from data.lstm_datloader import lstm_train_data
 from model.vgg_lstm import VGG_LSTM
+from utils import read_env
 
-path = Path(__file__).parent
 
-batch_size = 64
-input_dim = 20
-hidden_dim = 100
-seq_len = 50
-num_layers = 1
-class_num = 5
-batch_first = True
+env_path = Path(__file__).parent / "env_vars.txt"
+os.environ.update(read_env(env_path))
+batch_size = int(os.environ["BATCH_SIZE"])
+input_dim = int(os.environ["INPUT_DIM"])
+hidden_dim = int(os.environ["HIDDEN_DIM"])
+seq_len = int(os.environ["SEQ_LEN"])
+num_layers = int(os.environ["NUM_LAYERS"])
+class_num = int(os.environ["CLASS_NUM"])
 
 
 class CustomLoss(torch.nn.Module):
@@ -132,8 +133,8 @@ def mk_vgg_lstm_model(
     code: str, batch_size: int, seq_len: int, split_data: int = 20220913
 ):
     data = lstm_train_data(code, batch_size, seq_len, split_data=split_data)
-    model = VGG_LSTM(5, 20, seq_len, hidden_dim, 1)
-    optimizer = torch.optim.Adam(model.parameters(), lr=5e-4)
+    model = VGG_LSTM(class_num, input_dim, seq_len, hidden_dim, 1)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
     criterion = CustomLoss()
     return train_vgg_lstm(model, data, optimizer, criterion, 700)
 

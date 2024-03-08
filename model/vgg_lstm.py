@@ -3,7 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from model.vgg import vgg
 
-conv_arch = ((2, 64), (2, 128))
+conv_arch = ((2, 64), (2, 128), (2, 256), (2, 512))
+lstm_input_dim = conv_arch[-1][-1]
 
 
 class VGG_LSTM(nn.Module):
@@ -23,7 +24,7 @@ class VGG_LSTM(nn.Module):
 
         # LSTM层
         self.lstm = nn.LSTM(
-            input_size=128,
+            input_size=lstm_input_dim,
             hidden_size=self.lstm_hidden_dim,
             num_layers=self.lstm_num_layers,
             batch_first=True,
@@ -41,7 +42,7 @@ class VGG_LSTM(nn.Module):
 
         # 将特征转换为LSTM需要的格式
         features = features.view(
-            features.size(0), -1, 128
+            features.size(0), -1, lstm_input_dim
         )  # (batch_size, sequence_length, feature_size)
 
         # LSTM层的前向传播

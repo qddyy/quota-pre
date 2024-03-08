@@ -7,6 +7,13 @@ import torch
 from torch.utils.data import DataLoader, TensorDataset
 from imblearn.over_sampling import SMOTE
 
+from utils import read_env
+
+env_path = Path(__file__).parent.parent / "env_vars.txt"
+env = read_env(env_path)
+os.environ.update(env)
+input_dim = int(os.environ["INPUT_DIM"])
+
 
 def tag_zs(zs: float) -> list:
     if zs >= 1:
@@ -37,13 +44,13 @@ def mark_zscore(zscores: list):
 def data_to_zscore(data: pd.DataFrame) -> pd.DataFrame:
     features = data.drop(columns=["change1", "ts_code"])
     pcg = list(data["close"].pct_change())
-    returns = features.iloc[:, 1:8].astype(float).apply(np.log).diff()
-    indicaters = features.iloc[:, 8:-1].astype(float)
-    # returns = features.iloc[:, 1:7].pct_change()
-    for i in range(1, 8):
+    returns = features.iloc[:, 1:9].astype(float).apply(np.log).diff()
+    indicaters = features.iloc[:, 9:].astype(float)
+    dims = len(features.columns)
+    for i in range(1, 9):
         features.iloc[:, i] = cal_zscore(returns.iloc[:, i - 1].values)
-    for i in range(8, 20):
-        features.iloc[:, i] = cal_zscore(indicaters.iloc[:, i - 8].values)
+    for i in range(9, dims - 1):
+        features.iloc[:, i] = cal_zscore(indicaters.iloc[:, i - 9].values)
     pcg_df = pd.DataFrame({"pcg_zscore": cal_zscore(pcg)})
     data = pd.concat(
         [features.iloc[:-1, :], pcg_df.iloc[1:, :].reset_index(drop=True)],
@@ -89,7 +96,7 @@ def get_labled_data(
     y = make_seqs(seq_len, y)[:, -1, :].numpy()
     if resample:
         x, y = ros.fit_resample(x, y)
-    x = torch.tensor(x, dtype=torch.float32).view(-1, seq_len, 20)
+    x = torch.tensor(x, dtype=torch.float32).view(-1, seq_len, input_dim)
     y = torch.tensor(y, dtype=torch.float32)
     dataset = TensorDataset(x, y)
     data_loader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle)

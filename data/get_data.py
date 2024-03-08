@@ -146,7 +146,7 @@ def merge_ind(data: pd.DataFrame, fu_code: str) -> pd.DataFrame:
     return merge_dat
 
 
-def merge_etf(data: pd.DataFrame, fu_code: str):
+def merge_etf(data: pd.DataFrame, fu_code: str) -> pd.DataFrame:
     ind = get_fu_etf(fu_code)
     merge_dat = pd.merge(data, ind, on="trade_date")
     return merge_dat
@@ -164,8 +164,4 @@ def get_fu_etf(fu_code: str) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    etf = get_fu_etf(fut_codes[3])
-    fu = get_fu_data(code=fut_codes[3])
-    merge_in = merge_ind(fu, fut_codes[3])
-    add_inds = get_fu_single_indi(fut_codes[3], indics, True, True)
-    print(add_inds.columns)
+    save_fut_data(fut_codes, indics, True, True)
