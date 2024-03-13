@@ -108,7 +108,7 @@ def train_vgg_lstm(
 
 
 def update_vgg_lstm(
-    model: torch.nn.Module, data: DataLoader, epochs=700, if_save: bool = False
+    model: torch.nn.Module, data: DataLoader, epochs=100, if_save: bool = False
 ):
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     criterion = CustomLoss()
@@ -138,7 +138,7 @@ def mk_vgg_lstm_model(
     model = VGG_LSTM(class_num, input_dim, seq_len, hidden_dim, 1)
     optimizer = torch.optim.Adam(model.parameters(), lr=5e-3)
     criterion = CustomLoss()
-    return train_vgg_lstm(model, data, optimizer, criterion, 370)
+    return train_vgg_lstm(model, data, optimizer, criterion, 100)
 
 
 if __name__ == "__main__":

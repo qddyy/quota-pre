@@ -19,7 +19,7 @@ class VGG_LSTM(nn.Module):
         self.cnn = nn.Sequential(
             nn.Conv2d(
                 in_channels=1,
-                out_channels=16,
+                out_channels=64,
                 kernel_size=3,
                 stride=1,
                 padding=1,
@@ -27,7 +27,7 @@ class VGG_LSTM(nn.Module):
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2),
             nn.Conv2d(
-                in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=1
+                in_channels=64, out_channels=128, kernel_size=3, stride=1, padding=1
             ),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2),
@@ -39,7 +39,7 @@ class VGG_LSTM(nn.Module):
 
         # LSTM层
         self.lstm = nn.LSTM(
-            input_size=32,
+            input_size=128,
             hidden_size=self.lstm_hidden_dim,
             num_layers=self.lstm_num_layers,
             batch_first=True,
@@ -57,7 +57,7 @@ class VGG_LSTM(nn.Module):
 
         # 将特征转换为LSTM需要的格式
         features = features.view(
-            features.size(0), -1, 32
+            features.size(0), -1, 128
         )  # (batch_size, sequence_length, feature_size)
 
         # LSTM层的前向传播

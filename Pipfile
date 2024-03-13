@@ -19,6 +19,7 @@ wheel = "*"
 scipy = "*"
 scikit-learn = "*"
 imbalanced-learn = "*"
+chinese-calendar = "*"
 
 [dev-packages]
 pytest = "*"
