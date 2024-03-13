@@ -1,5 +1,9 @@
 import os
 from pathlib import Path
+from datetime import datetime, date
+
+import numpy as np
+from chinese_calendar import is_holiday
 
 
 def write_env(env_file_path, environ):
@@ -16,6 +20,58 @@ def read_env(env_file_path):
                 key, value = line.strip().split("=")
                 environ[key] = value
     return environ
+
+
+def is_trading_day(today: str):
+    weekday = datetime.strptime(today, "%Y%m%d").weekday()
+    today = datetime.strptime(today, "%Y%m%d").date()
+    if weekday >= 5:
+        return False
+    if is_holiday(today):
+        return False
+    return True
+
+
+def annualized_return(returns: float, holding_period_years: float = 1 / 360):
+    """
+    计算年化收益率（连续复利）
+
+    parameter:
+        returns: 期末净值/期初净值
+        holding_period_years: 持有期（年）
+    """
+    annual_return = np.log(returns) / holding_period_years
+    return annual_return
+
+
+def calculate_sharpe_ratio(result: list[float], risk_free_rate: float = 0.02):
+    """
+    计算夏普比率
+
+    parameter:
+        returns: 日收益率序列
+        risk_free_rate: 无风险利率，默认为0
+
+    """
+    returns = np.asarray(result)
+    returns = returns[1:] / returns[:-1]
+    returns = list(map(annualized_return, returns))
+    returns = np.asarray(returns)
+    excess_returns = returns - risk_free_rate
+    sharpe_ratio = excess_returns[-1] / np.std(excess_returns)
+    return sharpe_ratio
+
+
+def calculate_max_drawdown(returns):
+    """
+    计算最大回撤
+
+    parameter:
+        returns: 收益率序列
+
+    """
+    max_drawdown = np.max(np.maximum.accumulate(returns) - returns)
+    return max_drawdown
 
 
 if __name__ == "__main__":

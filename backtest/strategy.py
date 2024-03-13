@@ -1,16 +1,11 @@
 import os
-import sys
-import math
 from pathlib import Path
 from typing import Callable
 from datetime import datetime, timedelta
 from functools import partial
 
-
 import torch
-from torch.nn.functional import normalize
 import pandas as pd
-import pandas as np
 import matplotlib.pyplot as plt
 import lightgbm as lgb
 
@@ -19,6 +14,7 @@ from data.lstm_datloader import data_to_zscore, get_labled_data, make_data, make
 from model.vgg_lstm import VGG_LSTM
 from gbdt import split_data, train_gbdt
 from train_model import mk_vgg_lstm_model, update_vgg_lstm
+from utils import calculate_max_drawdown, calculate_sharpe_ratio, is_trading_day
 
 num_class = 5
 input_dim = 67
@@ -122,6 +118,8 @@ class strategy:
     test_data: pd.DataFrame
     account: futureAccount
     portfolio_values: list
+    start_date: str
+    end_date: str
 
     def __init__(
         self,
@@ -145,6 +143,7 @@ class strategy:
         self.portfolio_values = []
         self.weight = torch.tensor([-0.5, -0.2, 0.0, 0.2, 0.5], dtype=torch.float32)
         self.account = futureAccount(current_date="20220913", base=10000000, pool={})
+        self.start_date = self.account.current_date
 
     def excute_stratgy(
         self,
@@ -154,6 +153,8 @@ class strategy:
     ):
         for i in range(len(self.orin_data)):
             self.account.update_date(1)
+            while not is_trading_day(self.account.current_date):
+                self.account.update_date(1)
             price = self.orin_data.loc[i, ["close"]].item()
             self.daily_settle(price)
             if self.has_signal:
@@ -174,6 +175,7 @@ class strategy:
                     )
                     self.update_model(update_fuc, data)
                 self.has_signal = True
+        self.end_date = self.account.current_date
 
     def daily_settle(self, current_price: float):
         today = self.account.current_date
@@ -266,10 +268,17 @@ def bench_mark(code: str) -> pd.Series:
 
 
 if __name__ == "__main__":
-    gbdt_result, gbdt_wrate, gbdt_odds = gbdt_strategy("IC.CFX", 50)
-    vgg_lstm_result, lstm_wrate, lstm_odds = vgg_lstm_strategy("IC.CFX", 50)
-    random_result, rand_wrate, rand_odds = random_strategy("IC.CFX", 50)
-    bench_result = list(bench_mark("IC.CFX").values)
+    code = "IC.CFX"
+    gbdt_result, gbdt_wrate, gbdt_odds = gbdt_strategy(code, 50)
+    vgg_lstm_result, lstm_wrate, lstm_odds = vgg_lstm_strategy(code, 50)
+    random_result, rand_wrate, rand_odds = random_strategy(code, 50)
+    bench_result = list(bench_mark(code).values)
+    sharps = list(
+        map(calculate_sharpe_ratio, [vgg_lstm_result, gbdt_result, random_result])
+    )
+    drowdowns = list(
+        map(calculate_max_drawdown, [vgg_lstm_result, gbdt_result, random_result])
+    )
     returns = pd.DataFrame(
         {
             "lstm": vgg_lstm_result,
@@ -283,8 +292,11 @@ if __name__ == "__main__":
             "strategy": ["lstm", "gbdt", "random"],
             "win_rates": [lstm_wrate, gbdt_wrate, rand_wrate],
             "odds": [lstm_odds, gbdt_odds, rand_odds],
+            "sharp": sharps,
+            "Max_drawdown": drowdowns,
         }
     )
     print(rates)
+    # print(vgg_lstm_result)
     returns.dropna().plot()
     plt.show()
