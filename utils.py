@@ -21,7 +21,7 @@ def read_env(env_file_path):
 if __name__ == "__main__":
     path = Path(__file__).parent
     batch_size = 64
-    input_dim = 67
+    input_dim = 63
     hidden_dim = 100
     seq_len = 50
     num_layers = 1

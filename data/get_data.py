@@ -24,13 +24,13 @@ indics = [
     "kama",
     "tema",
     "wma",
+    "TRIMA",
     "macd",
+    "MIDPOINT",
     "CCI",
     "DX",
     "MINUS_DI",
     "PLUS_DI",
-    "MIDPOINT",
-    "TRIMA",
 ]
 
 
@@ -135,7 +135,7 @@ def get_fu_index(fu_code: str) -> pd.DataFrame:
     end_date = fut_info[fu_code][-1]
     ind_dat = pro.index_daily(
         ts_code=code, start_date=start_date, end_date=end_date
-    ).drop(columns=["amount", "ts_code"])
+    ).drop(columns=["amount", "ts_code", "change", "pct_chg"])
     ind_dat.columns = ["ind_" + v if v != "trade_date" else v for v in ind_dat.columns]
     return ind_dat
 
@@ -158,7 +158,7 @@ def get_fu_etf(fu_code: str) -> pd.DataFrame:
     end_date = fut_info[fu_code][-1]
     etf_dat = pro.fund_daily(
         ts_code=code, start_date=start_date, end_date=end_date
-    ).drop(columns=["amount", "ts_code"])
+    ).drop(columns=["amount", "ts_code", "change", "pct_chg"])
     etf_dat.columns = ["etf_" + v if v != "trade_date" else v for v in etf_dat.columns]
     return etf_dat
 

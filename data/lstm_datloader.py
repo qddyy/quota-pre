@@ -44,13 +44,13 @@ def mark_zscore(zscores: list):
 def data_to_zscore(data: pd.DataFrame) -> pd.DataFrame:
     features = data.drop(columns=["change1", "ts_code"])
     pcg = list(data["close"].pct_change())
-    returns = features.iloc[:, 1:9].astype(float).apply(np.log).diff()
-    indicaters = features.iloc[:, 9:].astype(float)
+    returns = features.iloc[:, 1:22].astype(float).apply(np.log).diff()
+    indicaters = features.iloc[:, 22:].astype(float)
     dims = len(features.columns)
-    for i in range(1, 9):
+    for i in range(1, 22):
         features.iloc[:, i] = cal_zscore(returns.iloc[:, i - 1].values)
-    for i in range(9, dims - 1):
-        # features.iloc[:, i] = cal_zscore(indicaters.iloc[:, i - 9].values)
+    for i in range(22, 53):
+        features.iloc[:, i] = cal_zscore(indicaters.iloc[:, i - 26].values)
         pass
     pcg_df = pd.DataFrame({"pcg_zscore": cal_zscore(pcg)})
     data = pd.concat(
@@ -148,6 +148,7 @@ def lstm_test_data(
 
 
 if __name__ == "__main__":
-    datald = lstm_train_data("IF.CFX", 64, 50)
-    dat = datald.dataset.tensors
-    print(dat[0].shape)
+    # datald = lstm_train_data("IF.CFX", 64, 50)
+    # dat = datald.dataset.tensors
+    # print(dat[0].shape)
+    make_data("IF.CFX")
