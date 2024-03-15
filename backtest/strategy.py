@@ -28,13 +28,14 @@ input_dim = int(os.environ["INPUT_DIM"])
 num_class = int(os.environ["CLASS_NUM"])
 seq_len = int(os.environ["SEQ_LEN"])
 hidden_dim = int(os.environ["HIDDEN_DIM"])
+code = os.environ["CODE"]
 
 
 class tradeSignal:
     HARD_BUY: float = 0.5
-    LITTLE_BUY: float = 0.2
+    LITTLE_BUY: float = 0.3
     FLAT: float = 0.0
-    LITTLE_SELL: float = -0.2
+    LITTLE_SELL: float = -0.3
     HARD_SELL: float = -0.5
 
 
@@ -87,6 +88,7 @@ def execut_signal(
     volumes_rate = (unilize(signals) * weight).sum().item()
     # arg = signals.argmax().item()
     # volumes_rate = weight[arg].item()
+    print(volumes_rate)
     account.order_to(code, volumes_rate, price)
 
 
@@ -225,10 +227,10 @@ def roll_date(date: str):
 
 
 def vgg_lstm_strategy(code: str, seq_len: int):
-    model_path = Path(__file__).parent.parent / "vgg_lstm_model.pth"
+    model_path = Path(__file__).parent.parent / f"vgg_lstm_model_{code}.pth"
     model = VGG_LSTM(num_class, input_dim, seq_len, hidden_dim)
     model.load_state_dict(torch.load(model_path))
-    update_fuc = update_vgg_lstm
+    update_fuc = partial(update_vgg_lstm, code=code)
     data_fuc = partial(lstm_updata_fuc, seq_len=seq_len, batch_size=64)
     test_data = make_vgg_data(code, seq_len)
     executer = strategy(code, seq_len, test_data, model, update=True)
@@ -236,7 +238,6 @@ def vgg_lstm_strategy(code: str, seq_len: int):
     portfolio_values = executer.portfolio_values
     win_rate = sum(executer.win_times) / len(executer.win_times)
     odds = sum(list(executer.odds["win"])) / sum(list(executer.odds["loss"]))
-    breakpoint()
     return [v / portfolio_values[0] for v in portfolio_values], win_rate, odds
 
 
@@ -279,7 +280,6 @@ def bench_mark(code: str) -> pd.Series:
 
 
 if __name__ == "__main__":
-    code = "IC.CFX"
     vgg_lstm_result, lstm_wrate, lstm_odds = vgg_lstm_strategy(code, seq_len)
     gbdt_result, gbdt_wrate, gbdt_odds = gbdt_strategy(code, seq_len)
     random_result, rand_wrate, rand_odds = random_strategy(code, seq_len)
