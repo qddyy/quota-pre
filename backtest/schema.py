@@ -110,3 +110,14 @@ class futureAccount:
                 return self.portfolio_value
         except Exception as e:
             print(e)
+
+
+if __name__ == "__main__":
+    account = futureAccount()
+    print(account.cash, account.portfolio_value)
+    account.order_to("111", 0.5, 6)
+    print(account.pool, account.transactions)
+    print(account.cash, account.portfolio_value)
+    account.update_price({"111": 7})
+    print(account.pool, account.transactions)
+    print(account.cash, account.portfolio_value)
