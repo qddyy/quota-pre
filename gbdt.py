@@ -12,6 +12,7 @@ num_round = 10
 env_path = Path(__file__).parent / "env_vars.txt"
 os.environ.update(read_env(env_path))
 windows = int(os.environ["SEQ_LEN"])
+code = os.environ["code"]
 
 
 def trans_class_num(cls: list):
@@ -91,5 +92,5 @@ def test_gbdt(code: str, seq_len: int, split_date: int = 20220913):
 
 
 if __name__ == "__main__":
-    train_gbdt("IC.CFX", windows)
-    test_gbdt("IC.CFX", windows)
+    train_gbdt(code, windows)
+    test_gbdt(code, windows)

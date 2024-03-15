@@ -39,6 +39,7 @@ with torch.no_grad():
 
 test_loss /= n  # 平均损失
 accuracy = 100.0 * correct / len(test_data.dataset)  # 计算准确率
+print(f"---------------test subject {code}-------------------")
 print(
     "\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n".format(
         test_loss, correct, len(test_data.dataset), accuracy
