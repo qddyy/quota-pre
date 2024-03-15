@@ -30,7 +30,7 @@ num_class = int(os.environ["CLASS_NUM"])
 seq_len = int(os.environ["SEQ_LEN"])
 hidden_dim = int(os.environ["HIDDEN_DIM"])
 code = os.environ["CODE"]
-if_agg = bool(os.environ["IF_AGG"])
+if_agg = bool(int(os.environ["IF_AGG"]))
 
 
 class tradeSignal:

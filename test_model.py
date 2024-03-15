@@ -14,7 +14,7 @@ input_dim = int(os.environ["INPUT_DIM"])
 batch_size = int(os.environ["BATCH_SIZE"])
 hidden_dim = int(os.environ["HIDDEN_DIM"])
 code = os.environ["CODE"]
-if_agg = bool(os.environ["IF_AGG"])
+if_agg = bool(int(os.environ["IF_AGG"]))
 
 model_path = Path(__file__).parent / f"vgg_lstm_model_{code}.pth"
 if if_agg:

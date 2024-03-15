@@ -20,7 +20,7 @@ num_layers = int(os.environ["NUM_LAYERS"])
 class_num = int(os.environ["CLASS_NUM"])
 code = os.environ["CODE"]
 codes = ["IH.CFX", "IF.CFX", "IC.CFX"]
-if_agg = bool(os.environ["IF_AGG"])
+if_agg = bool(int(os.environ["IF_AGG"]))
 
 
 class CustomLoss(torch.nn.Module):
