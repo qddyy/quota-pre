@@ -18,6 +18,7 @@ hidden_dim = int(os.environ["HIDDEN_DIM"])
 seq_len = int(os.environ["SEQ_LEN"])
 num_layers = int(os.environ["NUM_LAYERS"])
 class_num = int(os.environ["CLASS_NUM"])
+code = os.environ["CODE"]
 
 
 class CustomLoss(torch.nn.Module):
@@ -64,7 +65,8 @@ def train_vgg_lstm(
     data: DataLoader,
     optimizer: Optimizer,
     criterion: torch.nn.Module,
-    epochs=700,
+    code: str,
+    epochs=100,
 ):
     losses = []
     accs = []
@@ -105,13 +107,17 @@ def train_vgg_lstm(
                     sum(accs) / len(accs),
                 )
             )
-            torch.save(model.state_dict(), "vgg_lstm_model.pth")
-    torch.save(model.state_dict(), "vgg_lstm_model.pth")
+            torch.save(model.state_dict(), f"vgg_lstm_model_{code}.pth")
+    torch.save(model.state_dict(), f"vgg_lstm_model_{code}.pth")
     return model
 
 
 def update_vgg_lstm(
-    model: torch.nn.Module, data: DataLoader, epochs=100, if_save: bool = False
+    model: torch.nn.Module,
+    data: DataLoader,
+    code: str,
+    epochs=100,
+    if_save: bool = False,
 ):
     optimizer = torch.optim.Adam(model.parameters(), lr=5e-4)
     criterion = CustomLoss()
@@ -128,9 +134,9 @@ def update_vgg_lstm(
             loss.backward()
             optimizer.step()
             if if_save:
-                torch.save(model.state_dict(), path / "vgg_lstm_model.pth")
+                torch.save(model.state_dict(), path / f"vgg_lstm_model_{code}.pth")
     if if_save:
-        torch.save(model.state_dict(), path / "vgg_lstm_model.pth")
+        torch.save(model.state_dict(), path / f"vgg_lstm_model_{code}.pth")
     return model
 
 
@@ -141,8 +147,8 @@ def mk_vgg_lstm_model(
     model = VGG_LSTM(class_num, input_dim, seq_len, hidden_dim, 1)
     optimizer = torch.optim.Adam(model.parameters(), lr=5e-3)
     criterion = CustomLoss()
-    return train_vgg_lstm(model, data, optimizer, criterion, 100)
+    return train_vgg_lstm(model, data, optimizer, criterion, code, 100)
 
 
 if __name__ == "__main__":
-    model = mk_vgg_lstm_model("IC.CFX", batch_size, seq_len)
+    model = mk_vgg_lstm_model(code, batch_size, seq_len)

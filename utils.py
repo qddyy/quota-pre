@@ -79,9 +79,10 @@ if __name__ == "__main__":
     batch_size = 64
     input_dim = 63
     hidden_dim = 100
-    seq_len = 30
+    seq_len = 50
     num_layers = 1
     class_num = 5
+    code = "IC.CFX"
     environ = {
         "BATCH_SIZE": str(batch_size),
         "INPUT_DIM": str(input_dim),
@@ -89,6 +90,7 @@ if __name__ == "__main__":
         "SEQ_LEN": str(seq_len),
         "CLASS_NUM": str(class_num),
         "NUM_LAYERS": str(num_layers),
+        "CODE": code,
     }
     env_file_path = path / "env_vars.txt"
     write_env(env_file_path, environ)
