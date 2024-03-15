@@ -30,6 +30,7 @@ num_class = int(os.environ["CLASS_NUM"])
 seq_len = int(os.environ["SEQ_LEN"])
 hidden_dim = int(os.environ["HIDDEN_DIM"])
 code = os.environ["CODE"]
+if_agg = bool(os.environ["IF_AGG"])
 
 
 class tradeSignal:
@@ -209,7 +210,7 @@ class strategy:
                     self.odds["loss"].append(abs(intrest))
 
     def update_model(self, update_fuc: Callable, data):
-        # update_fuc(self.model, data)
+        update_fuc(self.model, data)
         pass
 
 
@@ -226,8 +227,10 @@ def roll_date(date: str):
     return new_date.strftime(date_format)
 
 
-def vgg_lstm_strategy(code: str, seq_len: int):
+def vgg_lstm_strategy(code: str, seq_len: int, if_agg: bool = False):
     model_path = root_path.parent / f"vgg_lstm_model_{code}.pth"
+    if if_agg:
+        model_path = root_path.parent / "vgg_lstm_model_agg.pth"
     model = VGG_LSTM(num_class, input_dim, seq_len, hidden_dim)
     model.load_state_dict(torch.load(model_path))
     update_fuc = partial(update_vgg_lstm, code=code)
@@ -280,7 +283,9 @@ def bench_mark(code: str) -> pd.Series:
 
 
 if __name__ == "__main__":
-    vgg_lstm_result, lstm_wrate, lstm_odds = vgg_lstm_strategy(code, seq_len)
+    if if_agg:
+        print("----------------use agg model----------------")
+    vgg_lstm_result, lstm_wrate, lstm_odds = vgg_lstm_strategy(code, seq_len, if_agg)
     gbdt_result, gbdt_wrate, gbdt_odds = gbdt_strategy(code, seq_len)
     random_result, rand_wrate, rand_odds = random_strategy(code, seq_len)
     bench_result = list(bench_mark(code).values)

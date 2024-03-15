@@ -20,6 +20,7 @@ num_layers = int(os.environ["NUM_LAYERS"])
 class_num = int(os.environ["CLASS_NUM"])
 code = os.environ["CODE"]
 codes = ["IH.CFX", "IF.CFX", "IC.CFX"]
+if_agg = bool(os.environ["IF_AGG"])
 
 
 class CustomLoss(torch.nn.Module):
@@ -154,17 +155,26 @@ def mk_vgg_lstm_model(
 def agg_data_train(batch_size: int, seq_len: int, split_data: int = 20220913):
     from torch.utils.data import DataLoader, ConcatDataset
 
-    data1 = lstm_train_data(code[0], batch_size, seq_len, split_data=split_data).dataset
-    data2 = lstm_train_data(code[1], batch_size, seq_len, split_data=split_data).dataset
-    data3 = lstm_train_data(code[2], batch_size, seq_len, split_data=split_data).dataset
+    print("----------train agg model----------")
+    data1 = lstm_train_data(
+        codes[0], batch_size, seq_len, split_data=split_data
+    ).dataset
+    data2 = lstm_train_data(
+        codes[1], batch_size, seq_len, split_data=split_data
+    ).dataset
+    data3 = lstm_train_data(
+        codes[2], batch_size, seq_len, split_data=split_data
+    ).dataset
     combined_dataset = ConcatDataset([data1, data2, data3])
     data = DataLoader(combined_dataset, batch_size=batch_size, shuffle=True)
     model = VGG_LSTM(class_num, input_dim, seq_len, hidden_dim, 1)
     optimizer = torch.optim.Adam(model.parameters(), lr=5e-3)
     criterion = CustomLoss()
-    return train_vgg_lstm(model, data, optimizer, criterion, code, 100)
+    return train_vgg_lstm(model, data, optimizer, criterion, "agg", 100)
 
 
 if __name__ == "__main__":
+    if if_agg:
+        agg_data_train(batch_size, seq_len)
     print(f"----------train subject {code}----------")
-    model = mk_vgg_lstm_model(code, batch_size, seq_len)
+    # model = mk_vgg_lstm_model(code, batch_size, seq_len)
