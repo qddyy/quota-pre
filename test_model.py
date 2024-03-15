@@ -13,9 +13,10 @@ class_num = int(os.environ["CLASS_NUM"])
 input_dim = int(os.environ["INPUT_DIM"])
 batch_size = int(os.environ["BATCH_SIZE"])
 hidden_dim = int(os.environ["HIDDEN_DIM"])
+code = os.environ["CODE"]
 
-model_path = Path(__file__).parent / "vgg_lstm_model.pth"
-test_data = lstm_test_data("IC.CFX", batch_size, seq_len)
+model_path = Path(__file__).parent / f"vgg_lstm_model_{code}.pth"
+test_data = lstm_test_data(code, batch_size, seq_len)
 # criterion = torch.nn.MSELoss(reduction="sum")
 criterion = CustomLoss()
 model = VGG_LSTM(class_num, input_dim, seq_len, hidden_dim)

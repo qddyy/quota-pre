@@ -16,13 +16,13 @@ input_dim = int(os.environ["INPUT_DIM"])
 
 
 def tag_zs(zs: float) -> list:
-    if zs >= 1:
+    if zs >= 1.5:
         return [0, 0, 0, 0, 1]
-    elif 0.2 <= zs < 1:
+    elif 0.2 <= zs < 1.5:
         return [0, 0, 0, 1, 0]
     elif -0.2 < zs < 0.2:
         return [0, 0, 1, 0, 0]
-    elif -1 < zs <= -0.2:
+    elif -1.5 < zs <= -0.2:
         return [0, 1, 0, 0, 0]
     else:
         return [1, 0, 0, 0, 0]
