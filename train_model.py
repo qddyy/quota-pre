@@ -36,7 +36,10 @@ class CustomLoss(torch.nn.Module):
         )
 
     def forward(self, output, target):
-        # 在这里实现自定义的损失计算逻辑
+        """
+        通过预测向量和真实向量的夹角来度量损失程度
+        为了使5类真实类别向量的家教不均匀,加了一个线性变换,即self.weight
+        """
         assert (
             output.size() == target.size()
         ), "the size of output should mathch the target"
@@ -49,7 +52,7 @@ class CustomLoss(torch.nn.Module):
         return loss
 
     def cosin(self, output, targets):
-        cosin = (output * targets).sum(dim=1) / (
+        cosin = (output * targets).sum(dim=1, keepdim=True) / (
             torch.norm(output, dim=1, keepdim=True)
             * torch.norm(targets, dim=1, keepdim=True)
         )
@@ -110,7 +113,7 @@ def train_vgg_lstm(
 def update_vgg_lstm(
     model: torch.nn.Module, data: DataLoader, epochs=100, if_save: bool = False
 ):
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    optimizer = torch.optim.Adam(model.parameters(), lr=5e-4)
     criterion = CustomLoss()
     for t in range(epochs):
         # Process each mini-batch in turn:

@@ -13,7 +13,7 @@ class futureAccount:
     factors: list[str,]
     cash: float
     stand: str
-    transactions: dict[list[str:dict]]
+    transactions: dict[str, list[str:dict]]
     current_date: str
 
     def __init__(

@@ -23,8 +23,10 @@ model.load_state_dict(torch.load(model_path))
 model.eval()
 test_loss = 0
 correct = 0
+n = 0
 with torch.no_grad():
     for data, target in test_data:
+        n += 1
         y_pred = model(data)
         pred = torch.zeros_like(y_pred)
         batch_num = y_pred.size(0)
@@ -34,7 +36,7 @@ with torch.no_grad():
             pred[i][max_ind] = 1
         correct += (pred.data == target.data).all(dim=1).sum()
 
-test_loss /= len(test_data.dataset)  # 平均损失
+test_loss /= n  # 平均损失
 accuracy = 100.0 * correct / len(test_data.dataset)  # 计算准确率
 print(
     "\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n".format(
