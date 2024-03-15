@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from datetime import datetime, date
+from datetime import datetime
 
 import numpy as np
 from chinese_calendar import is_holiday
@@ -58,7 +58,7 @@ def calculate_sharpe_ratio(result: list[float], risk_free_rate: float = 0.02):
     returns = list(map(annualized_return, returns))
     returns = np.asarray(returns)
     excess_returns = returns - risk_free_rate
-    sharpe_ratio = excess_returns[-1] / np.std(excess_returns)
+    sharpe_ratio = np.mean(excess_returns) / np.std(excess_returns)
     return sharpe_ratio
 
 
@@ -79,7 +79,7 @@ if __name__ == "__main__":
     batch_size = 64
     input_dim = 63
     hidden_dim = 100
-    seq_len = 50
+    seq_len = 30
     num_layers = 1
     class_num = 5
     environ = {

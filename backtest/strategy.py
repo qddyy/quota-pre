@@ -14,12 +14,20 @@ from data.lstm_datloader import data_to_zscore, get_labled_data, make_data, make
 from model.vgg_lstm import VGG_LSTM
 from gbdt import split_data, train_gbdt
 from train_model import mk_vgg_lstm_model, update_vgg_lstm
-from utils import calculate_max_drawdown, calculate_sharpe_ratio, is_trading_day
+from utils import (
+    calculate_max_drawdown,
+    calculate_sharpe_ratio,
+    is_trading_day,
+    read_env,
+)
 
-num_class = 5
-input_dim = 67
-seq_len = 50
-hidden_dim = 100
+env_path = Path(__file__).parent.parent / "env_vars.txt"
+env = read_env(env_path)
+os.environ.update(env)
+input_dim = int(os.environ["INPUT_DIM"])
+num_class = int(os.environ["CLASS_NUM"])
+seq_len = int(os.environ["SEQ_LEN"])
+hidden_dim = int(os.environ["HIDDEN_DIM"])
 
 
 class tradeSignal:
@@ -162,18 +170,19 @@ class strategy:
                 self.has_signal = False
             self.account.update_price({self.code: price})
             self.portfolio_values.append(self.account.portfolio_value)
-            if (i + 1) >= self.seq_len and i <= len(self.orin_data) - self.seq_len:
+            if (i + 1) >= self.seq_len and i <= len(self.orin_data) - 1:
                 self.signals = signal_gerater(
                     self.test_data[self.pre_times], self.model
                 )
                 self.pre_times += 1
-                if self.pre_times % (2 * self.seq_len) == 0 and self.update:
-                    data = data_fuc(
-                        self.orin_data[i - 2 * self.seq_len - 2 : i].reset_index(
-                            drop=True
+                if self.pre_times - (2 * self.seq_len) > 0 and self.update:
+                    if (self.pre_times - (2 * self.seq_len)) % 30 == 0:
+                        data = data_fuc(
+                            self.orin_data[i - 2 * self.seq_len - 2 : i].reset_index(
+                                drop=True
+                            )
                         )
-                    )
-                    self.update_model(update_fuc, data)
+                        self.update_model(update_fuc, data)
                 self.has_signal = True
         self.end_date = self.account.current_date
 
@@ -198,7 +207,7 @@ class strategy:
                     self.odds["loss"].append(abs(intrest))
 
     def update_model(self, update_fuc: Callable, data):
-        update_fuc(self.model, data)
+        # update_fuc(self.model, data)
         pass
 
 
@@ -209,8 +218,10 @@ def lstm_sig_gener(data, model) -> torch.Tensor:
 def roll_date(date: str):
     date_format = "%Y%m%d"
     old_date = datetime.strptime(date, date_format)
-    new_date = (old_date + timedelta(days=-1)).strftime(date_format)
-    return new_date
+    new_date = old_date + timedelta(days=-1)
+    while not is_trading_day(new_date.strftime(date_format)):
+        new_date = new_date + timedelta(days=-1)
+    return new_date.strftime(date_format)
 
 
 def vgg_lstm_strategy(code: str, seq_len: int):
@@ -225,7 +236,7 @@ def vgg_lstm_strategy(code: str, seq_len: int):
     portfolio_values = executer.portfolio_values
     win_rate = sum(executer.win_times) / len(executer.win_times)
     odds = sum(list(executer.odds["win"])) / sum(list(executer.odds["loss"]))
-    # print(executer.account.transactions)
+    breakpoint()
     return [v / portfolio_values[0] for v in portfolio_values], win_rate, odds
 
 
@@ -269,9 +280,9 @@ def bench_mark(code: str) -> pd.Series:
 
 if __name__ == "__main__":
     code = "IC.CFX"
-    gbdt_result, gbdt_wrate, gbdt_odds = gbdt_strategy(code, 50)
-    vgg_lstm_result, lstm_wrate, lstm_odds = vgg_lstm_strategy(code, 50)
-    random_result, rand_wrate, rand_odds = random_strategy(code, 50)
+    vgg_lstm_result, lstm_wrate, lstm_odds = vgg_lstm_strategy(code, seq_len)
+    gbdt_result, gbdt_wrate, gbdt_odds = gbdt_strategy(code, seq_len)
+    random_result, rand_wrate, rand_odds = random_strategy(code, seq_len)
     bench_result = list(bench_mark(code).values)
     sharps = list(
         map(calculate_sharpe_ratio, [vgg_lstm_result, gbdt_result, random_result])
