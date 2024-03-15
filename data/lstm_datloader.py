@@ -88,7 +88,7 @@ def get_labled_data(
     shuffle: bool = True,
     resample: bool = True,
 ) -> DataLoader:
-    ros = SMOTE()
+    ros = SMOTE(k_neighbors=4)
     x = torch.tensor(data.iloc[:, :-1].to_numpy(), dtype=torch.float32)
     y = mark_zscore(data.iloc[:, -1].values)
     y = torch.tensor(y, dtype=torch.float32)
