@@ -21,7 +21,8 @@ from utils import (
     read_env,
 )
 
-env_path = Path(__file__).parent.parent / "env_vars.txt"
+root_path = Path(__file__).parent
+env_path = root_path.parent / "env_vars.txt"
 env = read_env(env_path)
 os.environ.update(env)
 input_dim = int(os.environ["INPUT_DIM"])
@@ -40,7 +41,7 @@ class tradeSignal:
 
 
 def read_data(code: str) -> pd.DataFrame:
-    data_path = Path(__file__).parent.parent / f"data/{code}_test_data.csv"
+    data_path = root_path.parent / f"data/{code}_test_data.csv"
     if os.path.exists(data_path):
         test_data = pd.read_csv(data_path)
     else:
@@ -49,7 +50,7 @@ def read_data(code: str) -> pd.DataFrame:
 
 
 def read_orin_data(code: str) -> pd.DataFrame:
-    file_path = Path(__file__).parent.parent / f"data/{code}.csv"
+    file_path = root_path.parent / f"data/{code}.csv"
     fu_dat = pd.read_csv(file_path)
     # features = fu_dat.drop(columns=["change1", "ts_code"])
     data = fu_dat.iloc[:-1, :]
@@ -88,7 +89,6 @@ def execut_signal(
     volumes_rate = (unilize(signals) * weight).sum().item()
     # arg = signals.argmax().item()
     # volumes_rate = weight[arg].item()
-    print(volumes_rate)
     account.order_to(code, volumes_rate, price)
 
 
@@ -227,7 +227,7 @@ def roll_date(date: str):
 
 
 def vgg_lstm_strategy(code: str, seq_len: int):
-    model_path = Path(__file__).parent.parent / f"vgg_lstm_model_{code}.pth"
+    model_path = root_path.parent / f"vgg_lstm_model_{code}.pth"
     model = VGG_LSTM(num_class, input_dim, seq_len, hidden_dim)
     model.load_state_dict(torch.load(model_path))
     update_fuc = partial(update_vgg_lstm, code=code)
@@ -252,7 +252,7 @@ def random_gener(data, model) -> torch.Tensor:
 
 
 def gbdt_strategy(code: str, seq_len: int):
-    model_path = Path(__file__).parent.parent / f"{code}_gbdt_model.txt"
+    model_path = root_path.parent / f"{code}_gbdt_model.txt"
     model = lgb.Booster(model_file=model_path).predict
     update_fuc = gbdt_update_model(code, seq_len)
     test_data = make_gbdt_data(code, seq_len).iloc
@@ -307,7 +307,7 @@ if __name__ == "__main__":
             "Max_drawdown": drowdowns,
         }
     )
+    print(f"----------strategy subject {code}-------------")
     print(rates)
-    # print(vgg_lstm_result)
     returns.dropna().plot()
     plt.show()

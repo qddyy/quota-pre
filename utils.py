@@ -82,7 +82,7 @@ if __name__ == "__main__":
     seq_len = 50
     num_layers = 1
     class_num = 5
-    code = "IC.CFX"
+    code = "IH.CFX"
     environ = {
         "BATCH_SIZE": str(batch_size),
         "INPUT_DIM": str(input_dim),
