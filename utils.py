@@ -54,7 +54,6 @@ def calculate_sharpe_ratio(result: list[float], risk_free_rate: float = 0.02):
 
     """
     returns = np.asarray(result)
-    returns = returns[1:] / returns[:-1]
     returns = list(map(annualized_return, returns))
     returns = np.asarray(returns)
     excess_returns = returns - risk_free_rate

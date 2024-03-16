@@ -239,8 +239,12 @@ def vgg_lstm_strategy(code: str, seq_len: int, if_agg: bool = False):
     executer = strategy(code, seq_len, test_data, model, update=True)
     executer.excute_stratgy(lstm_sig_gener, update_fuc, data_fuc)
     portfolio_values = executer.portfolio_values
-    win_rate = sum(executer.win_times) / len(executer.win_times)
-    odds = sum(list(executer.odds["win"])) / sum(list(executer.odds["loss"]))
+    win_times = sum(executer.win_times)
+    lose_times = len(executer.win_times) - win_times
+    win_return = sum(list(executer.odds["win"]))
+    loss = sum(list(executer.odds["loss"]))
+    win_rate = win_times / len(executer.win_times)
+    odds = (win_return / win_times) / (loss / lose_times)
     return [v / portfolio_values[0] for v in portfolio_values], win_rate, odds
 
 
@@ -262,8 +266,12 @@ def gbdt_strategy(code: str, seq_len: int):
     executer = strategy(code, seq_len, test_data, model)
     executer.excute_stratgy(gbdt_sig_gener, update_fuc)
     portfolio_values = executer.portfolio_values
-    win_rate = sum(executer.win_times) / len(executer.win_times)
-    odds = sum(list(executer.odds["win"])) / sum(list(executer.odds["loss"]))
+    win_times = sum(executer.win_times)
+    lose_times = len(executer.win_times) - win_times
+    win_return = sum(list(executer.odds["win"]))
+    loss = sum(list(executer.odds["loss"]))
+    win_rate = win_times / len(executer.win_times)
+    odds = (win_return / win_times) / (loss / lose_times)
     return [v / portfolio_values[0] for v in portfolio_values], win_rate, odds
 
 
@@ -272,8 +280,12 @@ def random_strategy(code: str, seq_len: int):
     executer = strategy(code, seq_len, test_data)
     executer.excute_stratgy(random_gener)
     portfolio_values = executer.portfolio_values
-    win_rate = sum(executer.win_times) / len(executer.win_times)
-    odds = sum(list(executer.odds["win"])) / sum(list(executer.odds["loss"]))
+    win_times = sum(executer.win_times)
+    lose_times = len(executer.win_times) - win_times
+    win_return = sum(list(executer.odds["win"]))
+    loss = sum(list(executer.odds["loss"]))
+    win_rate = win_times / len(executer.win_times)
+    odds = (win_return / win_times) / (loss / lose_times)
     return [v / portfolio_values[0] for v in portfolio_values], win_rate, odds
 
 
