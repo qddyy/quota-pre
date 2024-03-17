@@ -3,7 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from model.vgg import vgg
 
-conv_arch = ((1, 64), (1, 128))
+conv_arch = ((2, 64), (2, 128), (2, 256), (2, 512))
+lstm_input_dim = conv_arch[-1][-1]
 
 
 class VGG_LSTM(nn.Module):
@@ -15,7 +16,27 @@ class VGG_LSTM(nn.Module):
         # 加载预训练的VGG16模型
         self.input_dim = input_dim
         self.seq_len = seq_len
-        self.vgg = vgg(conv_arch, input_dim, seq_len)
+        self.cnn = nn.Sequential(
+            nn.Conv2d(
+                in_channels=1,
+                out_channels=16,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+            ),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(
+                in_channels=16, out_channels=32, kernel_size=3, stride=1, padding=1
+            ),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+            nn.Conv2d(
+                in_channels=32, out_channels=64, kernel_size=3, stride=1, padding=1
+            ),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2),
+        )
 
         # LSTM参数
         self.lstm_hidden_dim = lstm_hidden_dim
@@ -23,7 +44,7 @@ class VGG_LSTM(nn.Module):
 
         # LSTM层
         self.lstm = nn.LSTM(
-            input_size=512,
+            input_size=64,
             hidden_size=self.lstm_hidden_dim,
             num_layers=self.lstm_num_layers,
             batch_first=True,
@@ -31,16 +52,17 @@ class VGG_LSTM(nn.Module):
 
         # 全连接层
         self.fc = nn.Linear(self.lstm_hidden_dim, num_classes)
+        self.soft = nn.Softmax(dim=1)
 
     def forward(self, x):
         # 提取图像特征
         with torch.no_grad():
             x = torch.unsqueeze(x, 1)
-            features = self.vgg(x)
+            features = self.cnn(x)
 
         # 将特征转换为LSTM需要的格式
         features = features.view(
-            features.size(0), -1, 16
+            features.size(0), -1, 64
         )  # (batch_size, sequence_length, feature_size)
 
         # LSTM层的前向传播
@@ -51,8 +73,16 @@ class VGG_LSTM(nn.Module):
 
         # 全连接层的前向传播
         output = self.fc(lstm_out)
+        output = self.soft(output)
 
         return output
+
+    def utlize(self, output: torch.Tensor):
+        max_ = output.max(dim=1).values.view(output.size(0), -1)
+        min_ = output.min(dim=1).values.view(output.size(0), -1)
+        util = (output - min_) / (max_ - min_)
+        util /= torch.sum(util, dim=1, keepdim=True)
+        return util.squeeze()
 
 
 if __name__ == "__main__":

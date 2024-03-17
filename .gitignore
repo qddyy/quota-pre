@@ -6,9 +6,16 @@ __pycache__/
 # C extensions
 *.so
 
+/**/*.csv
+**/*.csv
+*.txt
 #develop
 /**/*draft.py
-
+# /**/*.csv
+*.csv
+/**/*cifar-10-batches-py
+/**/*cifar-10-python.tar.gz
+**/cifar-10-python.tar.gz
 # Distribution / packaging
 .Python
 build/

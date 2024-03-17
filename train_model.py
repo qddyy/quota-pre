@@ -1,52 +1,81 @@
 import os
+from math import sqrt
 from pathlib import Path
-import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
 import torch
 from torch.utils.data import DataLoader
-import torch.nn.functional as F
 from torch.optim.optimizer import Optimizer
 
-
-from data.lstm_datloader import make_lstm_data
-from model.convLstm import ConvLSTM
-from model.cnn_lstm import Args, CNN_LSTM
+from data.lstm_datloader import lstm_train_data
 from model.vgg_lstm import VGG_LSTM
+from utils import read_env
+
+path = Path(__file__).parent
+env_path = path / "env_vars.txt"
+os.environ.update(read_env(env_path))
+batch_size = int(os.environ["BATCH_SIZE"])
+input_dim = int(os.environ["INPUT_DIM"])
+hidden_dim = int(os.environ["HIDDEN_DIM"])
+seq_len = int(os.environ["SEQ_LEN"])
+num_layers = int(os.environ["NUM_LAYERS"])
+class_num = int(os.environ["CLASS_NUM"])
+code = os.environ["CODE"]
+codes = ["IH.CFX", "IF.CFX", "IC.CFX"]
+if_agg = bool(int(os.environ["IF_AGG"]))
 
 
-batch_size = 64
-input_dim = 20
-hidden_dim = 100
-seq_len = 50
-num_layers = 1
-class_num = 5
-batch_first = True
+class CustomLoss(torch.nn.Module):
+    def __init__(self):
+        super(CustomLoss, self).__init__()
+        self.distance = torch.tensor([-0.5, -0.34, 0, 0.34, 0.5], dtype=float)
+        self.weight = torch.tensor(
+            [
+                [-0.6, 0, 0, -0.8, 0],
+                [0, -sqrt(2) / 2, 0.5, -0.5, 0],
+                [0, 0, 1, 0, 0],
+                [0, sqrt(2) / 2, 0.5, 0.5, 0],
+                [0, 0, 0, 0.8, 0.6],
+            ],
+            dtype=torch.float32,
+        )
 
+    def forward(self, output, target):
+        """
+        通过预测向量和真实向量的夹角来度量损失程度
+        为了使5类真实类别向量的家教不均匀,加了一个线性变换,即self.weight
+        """
+        assert (
+            output.size() == target.size()
+        ), "the size of output should mathch the target"
+        err_multi = torch.zeros_like(output, dtype=torch.float32)
+        true_target = torch.zeros_like(target, dtype=torch.float32)
+        for i in range(target.size(0)):
+            err_multi[i] = torch.mv(self.weight, output[i])
+            true_target[i] = torch.mv(self.weight, target[i])
+        loss = self.cosin(err_multi, true_target).sum() / target.size(0)
+        return loss
 
-def calc_error(y_pred, y_actual):
-    with torch.no_grad():
-        tot_loss = F.mse_loss(y_pred, y_actual)
-        rmse = torch.sqrt(tot_loss).item()
-        perc_loss = torch.mean(100.0 * torch.abs((y_pred - y_actual) / y_actual))
-    return (tot_loss, rmse, perc_loss)
+    def cosin(self, output, targets):
+        cosin = (output * targets).sum(dim=1, keepdim=True) / (
+            torch.norm(output, dim=1, keepdim=True)
+            * torch.norm(targets, dim=1, keepdim=True)
+        )
+        return torch.exp(-cosin)
 
 
 def train_vgg_lstm(
     model: torch.nn.Module,
     data: DataLoader,
     optimizer: Optimizer,
-    criterion: torch.nn.MSELoss,
-    epochs=500,
+    criterion: torch.nn.Module,
+    code: str,
+    epochs=100,
 ):
-    errors = []
-    rmses = []
+    losses = []
     accs = []
     for t in range(epochs):
         # Process each mini-batch in turn:
         for x, y_actual in data:
             y_pred = model(x)
-            y_actual = y_actual[:, -1, :]
             # Compute and print loss
             loss = criterion(
                 y_pred.to(dtype=torch.float), y_actual.to(dtype=torch.float)
@@ -59,8 +88,9 @@ def train_vgg_lstm(
         for x, y_actual in data:
             # Get the error rate for the whole batch:
             y_pred = model(x)
-            y_actual = y_actual[:, -1, :]
-            mse, rmse, perc_loss = calc_error(y_pred, y_actual)
+            loss = criterion(
+                y_pred.to(dtype=torch.float), y_actual.to(dtype=torch.float)
+            ).item()
             pred = torch.zeros_like(y_pred)
             batch_num = y_pred.size(0)
             for i in range(batch_num):
@@ -69,23 +99,82 @@ def train_vgg_lstm(
             corrects = (pred.data == y_actual.data).all(dim=1).sum()
             acc = corrects / batch_num * 100
             accs.append(acc)
-            errors.append(perc_loss)
-            rmses.append(rmse)
+            losses.append(loss)
         # Print some progress information as the net is trained:
         if epochs < 30 or t % 10 == 0:
             print(
-                "epoch {:4d}: RMSE={:.5f} ={:.2f}, Accracy={:.5f}%".format(
+                "epoch {:4d}: loss={:.5f}, Accracy={:.5f}%".format(
                     t,
-                    sum(rmses) / len(rmses),
-                    sum(errors) / len(errors),
+                    sum(losses) / len(losses),
                     sum(accs) / len(accs),
                 )
             )
+            torch.save(model.state_dict(), f"vgg_lstm_model_{code}.pth")
+    torch.save(model.state_dict(), f"vgg_lstm_model_{code}.pth")
+    return model
+
+
+def update_vgg_lstm(
+    model: torch.nn.Module,
+    data: DataLoader,
+    code: str,
+    epochs=100,
+    if_save: bool = False,
+):
+    optimizer = torch.optim.Adam(model.parameters(), lr=5e-4)
+    criterion = CustomLoss()
+    for t in range(epochs):
+        # Process each mini-batch in turn:
+        for x, y_actual in data:
+            y_pred = model(x)
+            # Compute and print loss
+            loss = criterion(
+                y_pred.to(dtype=torch.float), y_actual.to(dtype=torch.float)
+            )
+            # Zero gradients, perform a backward pass, and update the weights.
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            if if_save:
+                torch.save(model.state_dict(), path / f"vgg_lstm_model_{code}.pth")
+    if if_save:
+        torch.save(model.state_dict(), path / f"vgg_lstm_model_{code}.pth")
+    return model
+
+
+def mk_vgg_lstm_model(
+    code: str, batch_size: int, seq_len: int, split_data: int = 20220913
+):
+    data = lstm_train_data(code, batch_size, seq_len, split_data=split_data)
+    model = VGG_LSTM(class_num, input_dim, seq_len, hidden_dim, 1)
+    optimizer = torch.optim.Adam(model.parameters(), lr=5e-3)
+    criterion = CustomLoss()
+    return train_vgg_lstm(model, data, optimizer, criterion, code, 100)
+
+
+def agg_data_train(batch_size: int, seq_len: int, split_data: int = 20220913):
+    from torch.utils.data import DataLoader, ConcatDataset
+
+    print("----------train agg model----------")
+    data1 = lstm_train_data(
+        codes[0], batch_size, seq_len, split_data=split_data
+    ).dataset
+    data2 = lstm_train_data(
+        codes[1], batch_size, seq_len, split_data=split_data
+    ).dataset
+    data3 = lstm_train_data(
+        codes[2], batch_size, seq_len, split_data=split_data
+    ).dataset
+    combined_dataset = ConcatDataset([data1, data2, data3])
+    data = DataLoader(combined_dataset, batch_size=batch_size, shuffle=True)
+    model = VGG_LSTM(class_num, input_dim, seq_len, hidden_dim, 1)
+    optimizer = torch.optim.Adam(model.parameters(), lr=5e-3)
+    criterion = CustomLoss()
+    return train_vgg_lstm(model, data, optimizer, criterion, "agg", 100)
 
 
 if __name__ == "__main__":
-    data = make_lstm_data("IC.CFX", batch_size, seq_len)
-    model = VGG_LSTM(5, 20, seq_len, hidden_dim)
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-    criterion = torch.nn.MSELoss(reduction="sum")
-    train_vgg_lstm(model, data, optimizer, criterion)
+    if if_agg:
+        agg_data_train(batch_size, seq_len)
+    print(f"----------train subject {code}----------")
+    # model = mk_vgg_lstm_model(code, batch_size, seq_len)
